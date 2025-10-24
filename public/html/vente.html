@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Totaux des Ventes - Pâtisserie Sucrée</title>
+
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+
+<body class="flex h-screen bg-gray-100">
+
+  <!-- Barre latérale -->
+  <aside class="w-64 bg-gradient-to-br from-pink-500 to-rose-500 text-white flex flex-col shadow-lg">
+    <div class="p-6 flex-1">
+      <h2 class="text-2xl font-bold mb-8">🍰 Pâtisserie Sucrée</h2>
+      <nav class="flex flex-col space-y-2">
+        <a href="dashboard.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition"><i class="fas fa-box"></i> Matières Premières</a>
+        <a href="consommation.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition"><i class="fas fa-chart-line"></i> Consommations</a>
+        <a href="produit.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition"><i class="fas fa-birthday-cake"></i> Produits</a>
+        <a href="vente.html" class="flex items-center gap-3 p-3 rounded-lg bg-white/10"><i class="fas fa-cash-register"></i> Ventes</a>
+        <a href="commandes.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition">
+          <i class="fas fa-receipt"></i> Commandes
+        </a>
+        <a href="modifierProfile.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10">
+          <i class="fas fa-user-edit"></i> Modifier Profil
+        </a>
+        <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg mt-auto hover:bg-white/10">
+          <i class="fas fa-sign-out-alt"></i> Déconnexion
+        </a>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Contenu principal -->
+  <main class="flex-1 p-8 overflow-auto">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">📊 Totaux des Ventes par Produit et par Jour</h1>
+
+    <!-- Barre de recherche -->
+    <div class="mb-4 flex gap-2 flex-wrap items-center">
+      <input type="date" id="searchDate" class="border p-2 rounded-lg flex-1 max-w-xs" />
+      <input type="text" id="searchProduit" placeholder="Nom du produit" class="border p-2 rounded-lg flex-1 max-w-xs" />
+      <button id="searchBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-1">
+        <i class="fas fa-search"></i> Rechercher
+      </button>
+      <button id="clearBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center gap-1">
+        <i class="fas fa-times"></i> Effacer
+      </button>
+    </div>
+
+    <!-- Tableau -->
+    <section class="bg-white p-6 rounded-xl shadow-md animate-fadeIn">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800">Résumé des ventes</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-100 text-gray-700">
+              <th class="p-3 border-b font-medium">Date</th>
+              <th class="p-3 border-b font-medium">Produit</th>
+              <th class="p-3 border-b text-center font-medium">Quantité Totale</th>
+              <th class="p-3 border-b text-center font-medium">Montant Total (DT)</th>
+            </tr>
+          </thead>
+          <tbody id="venteTableBody">
+            <tr><td colspan="4" class="p-3 text-center text-gray-500">Chargement...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Contrôles de pagination -->
+      <div id="paginationControls" class="mt-6 flex justify-between items-center flex-wrap gap-2">
+        <!-- Placeholder: Sera généré dynamiquement -->
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const API_URL = '/api/ventes/totaux';
+    const ITEMS_PER_PAGE = 10; // Pagination : 10 éléments par page
+    const tableBody = document.getElementById('venteTableBody');
+    const paginationControls = document.getElementById('paginationControls');
+    const clearBtn = document.getElementById('clearBtn');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchDate = document.getElementById('searchDate');
+    const searchProduit = document.getElementById('searchProduit');
+
+    let ventesData = [];
+    let currentPage = 1;
+    let filteredData = [];
+
+    // Filtrer uniquement lorsque l'utilisateur clique sur "Rechercher"
+    searchBtn.addEventListener('click', applyFilter);
+
+    // Effacer les filtres et réinitialiser la pagination
+    clearBtn.addEventListener('click', () => {
+      searchDate.value = '';
+      searchProduit.value = '';
+      currentPage = 1;
+      filteredData = ventesData;
+      renderTable();
+      renderPagination();
+    });
+
+    async function fetchVentes() {
+      tableBody.innerHTML = `<tr><td colspan="4" class="p-3 text-center text-gray-500">Chargement...</td></tr>`;
+      paginationControls.innerHTML = '';
+      try {
+        const res = await fetch(API_URL);
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Erreur HTTP ${res.status}: ${errorText}`);
+        }
+        ventesData = await res.json();
+        filteredData = ventesData;
+        currentPage = 1;
+        renderTable();
+        renderPagination();
+      } catch (err) {
+        console.error('❌ Erreur fetchVentes:', err);
+        tableBody.innerHTML = `<tr><td colspan="4" class="p-3 text-center text-red-500">Erreur lors du chargement des ventes: ${err.message}</td></tr>`;
+        paginationControls.innerHTML = '';
+      }
+    }
+
+    function applyFilter() {
+      const dateFilter = searchDate.value;
+      const produitFilter = searchProduit.value.toLowerCase();
+
+      filteredData = ventesData.filter(v => {
+        const jour = v.jour || '';
+        const produit = (v.produit_nom || '').toLowerCase();
+        return (!dateFilter || jour === dateFilter) && (!produitFilter || produit.includes(produitFilter));
+      });
+
+      currentPage = 1; // Réinitialiser à la première page après filtrage
+      renderTable();
+      renderPagination();
+    }
+
+    function renderTable() {
+      const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+      const endIndex = startIndex + ITEMS_PER_PAGE;
+      const pageData = filteredData.slice(startIndex, endIndex);
+
+      if (filteredData.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="4" class="p-3 text-center text-gray-500">Aucune vente trouvée</td></tr>`;
+        return;
+      }
+
+      if (pageData.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="4" class="p-3 text-center text-gray-500">Aucune donnée pour cette page</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = pageData.map(v => {
+        const date = v.jour || '—';
+        const produit = v.produit_nom || '—';
+        const quantite = Number(v.total_quantite_vendue) || 0;
+        const montant = Number(v.total_vente || 0).toFixed(2);
+
+        return `
+          <tr class="hover:bg-gray-50 border-b transition">
+            <td class="p-3 text-gray-700">${date}</td>
+            <td class="p-3 text-gray-700">${produit}</td>
+            <td class="p-3 text-center font-medium">${quantite}</td>
+            <td class="p-3 text-center font-semibold text-pink-600">${montant} DT</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderPagination() {
+      const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+      if (totalPages <= 1) {
+        paginationControls.innerHTML = '';
+        return;
+      }
+
+      let paginationHTML = `
+        <div class="flex items-center gap-2 text-sm text-gray-600">
+          <button id="prevBtn" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === 1 ? 'disabled' : ''}>
+            <i class="fas fa-chevron-left"></i> Précédent
+          </button>
+      `;
+
+      // Afficher jusqu'à 5 numéros de pages (ex. 1,2,3,...5)
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        paginationHTML += `
+          <button class="px-3 py-1 border rounded hover:bg-gray-100 ${i === currentPage ? 'bg-pink-100 text-pink-600 font-medium' : ''}" data-page="${i}">
+            ${i}
+          </button>
+        `;
+      }
+
+      if (endPage < totalPages) {
+        paginationHTML += `<span class="px-2">...</span><button class="px-3 py-1 border rounded hover:bg-gray-100" data-page="${totalPages}">${totalPages}</button>`;
+      }
+
+      paginationHTML += `
+          <button id="nextBtn" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === totalPages ? 'disabled' : ''}>
+            Suivant <i class="fas fa-chevron-right"></i>
+          </button>
+          <span class="ml-4">Page ${currentPage} sur ${totalPages} (${filteredData.length} résultats)</span>
+        </div>
+      `;
+
+      paginationControls.innerHTML = paginationHTML;
+
+      // Événements pour les boutons
+      document.getElementById('prevBtn')?.addEventListener('click', () => goToPage(currentPage - 1));
+      document.getElementById('nextBtn')?.addEventListener('click', () => goToPage(currentPage + 1));
+
+      // Événements pour les numéros de pages
+      paginationControls.querySelectorAll('button[data-page]').forEach(btn => {
+        btn.addEventListener('click', () => goToPage(parseInt(btn.dataset.page)));
+      });
+    }
+
+    function goToPage(page) {
+      const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+      if (page < 1 || page > totalPages) return;
+      currentPage = page;
+      renderTable();
+      renderPagination();
+    }
+
+    // Chargement initial
+    fetchVentes();
+  </script>
+
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+  </style>
+</body>
+</html>

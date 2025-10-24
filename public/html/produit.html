@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Produits - Pâtisserie Sucrée</title>
+
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+
+<body class="flex h-screen bg-gray-100">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-gradient-to-br from-pink-500 to-rose-500 text-white flex flex-col shadow-lg">
+    <div class="p-6 flex flex-col h-full">
+      <h2 class="text-2xl font-bold mb-8">🍰 Pâtisserie Sucrée</h2>
+      <nav class="flex flex-col space-y-2 flex-1">
+        <a href="dashboard.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition">
+          <i class="fas fa-box"></i> Matières Premières
+        </a>
+        <a href="consommation.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition">
+          <i class="fas fa-chart-line"></i> Consommations
+        </a>
+        <a href="produit.html" class="flex items-center gap-3 p-3 rounded-lg bg-white/10">
+          <i class="fas fa-birthday-cake"></i> Produits
+        </a>
+        <a href="vente.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10">
+          <i class="fas fa-cash-register"></i> Ventes
+        </a>
+        <a href="commandes.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition">
+          <i class="fas fa-receipt"></i> Commandes
+        </a>
+        <a href="modifierProfile.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10">
+          <i class="fas fa-user-edit"></i> Modifier Profil
+        </a>
+        <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg mt-auto hover:bg-white/10">
+          <i class="fas fa-sign-out-alt"></i> Déconnexion
+        </a>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Contenu principal -->
+  <main class="flex-1 p-8 overflow-auto">
+
+    <h1 class="text-3xl font-bold text-gray-800 mb-8">Gestion des Produits</h1>
+
+    <!-- 🔹 Formulaire toujours visible -->
+    <section class="bg-white p-6 rounded-xl shadow-md mb-8">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
+        <i class="fas fa-plus text-pink-500"></i> Ajouter un produit
+      </h2>
+
+      <form id="produitForm" class="grid grid-cols-4 gap-4" data-id="">
+        <input type="text" name="nom" placeholder="Nom du produit" required class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-400 outline-none" />
+        <select name="type" required class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-400 outline-none">
+          <option value="">-- Type --</option>
+          <option value="gateau">Gâteau</option>
+          <option value="croissant">Croissant</option>
+          <option value="pain">Pain</option>
+        </select>
+        <input type="number" name="prix" placeholder="Prix (DT)" min="0" step="0.1" required class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-400 outline-none" />
+        <input type="number" name="quantite_stock" placeholder="Quantité stock" min="0" class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-400 outline-none" />
+        <input type="number" name="quantite_vitrine" placeholder="Quantité vitrine" min="0" class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-400 outline-none" />
+
+        <div class="col-span-4 flex justify-end mt-2">
+          <button type="submit" class="bg-pink-500 hover:bg-pink-600 text-white px-5 py-2 rounded-lg flex items-center gap-2">
+            <i class="fas fa-save"></i> Enregistrer
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 🔹 Recherche -->
+    <section class="bg-white p-6 rounded-xl shadow-md mb-4">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
+        <i class="fas fa-search text-pink-500"></i> Rechercher un produit
+      </h2>
+      <div class="flex gap-4">
+        <input type="text" id="searchInput" placeholder="Rechercher par nom..." class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-400 outline-none" />
+        <button onclick="performSearch()" class="bg-pink-500 hover:bg-pink-600 text-white px-5 py-2 rounded-lg flex items-center gap-2">
+          <i class="fas fa-search"></i> Rechercher
+        </button>
+        <button onclick="clearSearch()" class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded-lg flex items-center gap-2">
+          <i class="fas fa-times"></i> Effacer
+        </button>
+      </div>
+    </section>
+
+    <!-- 🔹 Tableau produits -->
+    <section class="bg-white p-6 rounded-xl shadow-md">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800">Liste des Produits</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-100 text-gray-700">
+              <th class="p-3 border-b text-center">Nom</th>
+              <th class="p-3 border-b text-center">Type</th>
+              <th class="p-3 border-b text-center">Prix (DT)</th>
+              <th class="p-3 border-b text-center">Stock</th>
+              <th class="p-3 border-b text-center">Vitrine</th>
+              <th class="p-3 border-b text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="produitTableBody">
+            <tr><td colspan="6" class="p-3 text-center text-gray-500">Chargement...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 🔹 Pagination -->
+      <div id="pagination" class="flex justify-between items-center mt-6">
+        <div id="pageInfo" class="text-gray-600"></div>
+        <div class="flex gap-2">
+          <button id="prevBtn" onclick="changePage(-1)" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg disabled:opacity-50" disabled>
+            Précédent
+          </button>
+          <span id="pageNumbers" class="flex gap-1"></span>
+          <button id="nextBtn" onclick="changePage(1)" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg disabled:opacity-50" disabled>
+            Suivant
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const API_URL = '/api/produits';
+    const form = document.getElementById('produitForm');
+    const tableBody = document.getElementById('produitTableBody');
+    const searchInput = document.getElementById('searchInput');
+    let currentPage = 1;
+    let currentSearch = '';
+    let totalPages = 1;
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // 🔹 Construire l'URL avec params
+    function buildUrl(page = currentPage, search = currentSearch) {
+      const params = new URLSearchParams();
+      if (page > 1) params.append('page', page);
+      if (search.trim()) params.append('search', search.trim());
+      return `${API_URL}${params.toString() ? `?${params.toString()}` : ''}`;
+    }
+
+    // 🔹 Récupérer les produits avec pagination/recherche
+    async function fetchProduits(page = 1, search = '') {
+      currentPage = page;
+      currentSearch = search;
+      tableBody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-gray-500">Chargement...</td></tr>`;
+      try {
+        const url = buildUrl(page, search);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Erreur de chargement des produits');
+        const data = await res.json();
+        renderTable(data.produits);
+        renderPagination(data.pagination);
+      } catch (err) {
+        console.error('❌ Erreur fetchProduits:', err);
+        tableBody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-red-500">Erreur de chargement</td></tr>`;
+      }
+    }
+
+    // 🔹 Afficher les produits dans le tableau
+    function renderTable(produits) {
+      if (!produits.length) {
+        tableBody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-gray-500">Aucun produit trouvé</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = produits.map(p => `
+        <tr class="hover:bg-gray-50 border-b transition">
+          <td class="p-3 text-center">${escapeHtml(p.nom)}</td>
+          <td class="p-3 text-center">${escapeHtml(p.type)}</td>
+          <td class="p-3 text-center">${(p.prix ?? 0).toFixed(2)} DT</td>
+          <td class="p-3 text-center">${p.quantite_stock ?? 0}</td>
+          <td class="p-3 text-center">${p.quantite_vitrine ?? 0}</td>
+          <td class="p-3 text-center space-x-1">
+            <button class="text-green-500 hover:text-green-700" onclick="addToStock(${p.id})" title="Ajouter au stock"><i class="fas fa-plus"></i></button>
+            <button class="text-blue-500 hover:text-blue-700" onclick="transferToVitrine(${p.id})" title="Transférer vers vitrine"><i class="fas fa-arrow-right"></i></button>
+            <button class="text-orange-500 hover:text-orange-700" onclick="consumeVitrine(${p.id})" title="Consommer vitrine"><i class="fas fa-minus"></i></button>
+            <button class="text-blue-500 hover:text-blue-700 mr-2" onclick="editProduit(${p.id})"><i class="fas fa-edit"></i></button>
+            <button class="text-red-500 hover:text-red-700" onclick="deleteProduit(${p.id})"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // 🔹 Rendre la pagination
+    function renderPagination({ page, limit, totalPages: pages, total }) {
+      totalPages = pages;
+      document.getElementById('pageInfo').textContent = `Affichage de ${((page - 1) * limit) + 1} à ${Math.min(page * limit, total)} sur ${total} produits`;
+
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+      prevBtn.disabled = page <= 1;
+      nextBtn.disabled = page >= pages;
+
+      let pageNumbers = '';
+      for (let i = 1; i <= pages; i++) {
+        pageNumbers += `<button onclick="fetchProduits(${i}, '${currentSearch}')" class="px-3 py-1 rounded ${i === page ? 'bg-pink-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}">${i}</button>`;
+      }
+      document.getElementById('pageNumbers').innerHTML = pageNumbers;
+    }
+
+    // 🔹 Changer de page
+    window.changePage = delta => {
+      const newPage = currentPage + delta;
+      if (newPage >= 1 && newPage <= totalPages) {
+        fetchProduits(newPage, currentSearch);
+      }
+    };
+
+    // 🔹 Effectuer la recherche
+    window.performSearch = () => {
+      const searchTerm = searchInput.value;
+      fetchProduits(1, searchTerm);
+    };
+
+    // 🔹 Effacer la recherche
+    window.clearSearch = () => {
+      searchInput.value = '';
+      currentSearch = '';
+      fetchProduits(1);
+    };
+
+    // 🔹 Ajouter au stock
+    window.addToStock = async (id) => {
+      const q = prompt('Quantité à ajouter au stock :');
+      if (!q || isNaN(q) || parseInt(q) <= 0) return alert('Quantité invalide');
+      const quantite = parseInt(q);
+      try {
+        const res = await fetch(`${API_URL}/${id}`);
+        if (!res.ok) throw new Error('Impossible de charger le produit');
+        const p = await res.json();
+        const newStock = (p.quantite_stock || 0) + quantite;
+        await updateQuantities(id, { quantite_stock: newStock });
+      } catch (err) {
+        alert(`Erreur : ${err.message}`);
+      }
+    };
+
+    // 🔹 Transférer vers vitrine
+    window.transferToVitrine = async (id) => {
+      const q = prompt('Quantité à transférer du stock vers vitrine (max stock actuel) :');
+      if (!q || isNaN(q) || parseInt(q) <= 0) return alert('Quantité invalide');
+      const quantite = parseInt(q);
+      try {
+        const res = await fetch(`${API_URL}/${id}`);
+        if (!res.ok) throw new Error('Impossible de charger le produit');
+        const p = await res.json();
+        const currentStock = p.quantite_stock || 0;
+        if (quantite > currentStock) return alert(`Quantité dépasse le stock disponible (${currentStock})`);
+        const newStock = currentStock - quantite;
+        const newVitrine = (p.quantite_vitrine || 0) + quantite;
+        await updateQuantities(id, { quantite_stock: newStock, quantite_vitrine: newVitrine });
+      } catch (err) {
+        alert(`Erreur : ${err.message}`);
+      }
+    };
+
+    // 🔹 Consommer vitrine (enregistre la vente via endpoint dédié, puis met à jour la vitrine)
+    window.consumeVitrine = async (id) => {
+      const q = prompt('Quantité à consommer de la vitrine (max vitrine actuelle) :');
+      if (!q || isNaN(q) || parseInt(q) <= 0) return alert('Quantité invalide');
+      const quantite = parseInt(q);
+      try {
+        const res = await fetch(`${API_URL}/${id}`);
+        if (!res.ok) throw new Error('Impossible de charger le produit');
+        const p = await res.json();
+        const currentVitrine = p.quantite_vitrine || 0;
+        if (quantite > currentVitrine) return alert(`Quantité dépasse la vitrine disponible (${currentVitrine})`);
+        
+        // Vérifier prix >0 avant enregistrement de la vente
+        if ((p.prix || 0) <= 0) return alert('Erreur : Prix du produit doit être supérieur à 0 pour enregistrer une vente.');
+        
+        // 🔹 Appel à l'endpoint dédié pour consommer et enregistrer la vente
+        const consumeRes = await fetch(`${API_URL}/${id}/consume`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quantite })
+        });
+        if (!consumeRes.ok) {
+          const errorData = await consumeRes.json();
+          throw new Error(errorData.error || 'Erreur lors de la consommation');
+        }
+        
+        const result = await consumeRes.json();
+        fetchProduits(currentPage, currentSearch);
+        
+        // 🔹 Afficher alerte seulement si l'enregistrement est réussi
+        
+      } catch (err) {
+        console.error('Erreur consumeVitrine:', err);
+        if (err.message.includes('Prix invalide')) {
+          alert('Erreur : Prix invalide pour enregistrer la vente. Mettez à jour le prix du produit d\'abord.');
+        } else if (err.message.includes('Quantité vendue invalide') || err.message.includes('Quantité à consommer invalide')) {
+          alert('Erreur : Quantité à consommer invalide.');
+        } else if (err.message.includes('dépassé')) {
+          alert(`Erreur : ${err.message}`);
+        } else {
+          alert(`❌ Erreur lors de l'enregistrement de la consommation : ${err.message}`);
+        }
+      }
+    };
+
+    // 🔹 Fonction utilitaire pour mettre à jour les quantités (recharge la page courante)
+    async function updateQuantities(id, updates) {
+      const res = await fetch(`${API_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Erreur de mise à jour');
+      fetchProduits(currentPage, currentSearch);
+    }
+
+    // 🔹 Soumission du formulaire (ajout ou modification) – avec check duplicate
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.prix = parseFloat(data.prix) || 0;
+      data.quantite_stock = parseInt(data.quantite_stock) || 0;
+      data.quantite_vitrine = parseInt(data.quantite_vitrine) || 0;
+
+      try {
+        const method = form.dataset.id ? 'PUT' : 'POST';
+        const url = form.dataset.id ? `${API_URL}/${form.dataset.id}` : API_URL;
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        let errorData;
+        if (!res.ok) {
+          errorData = await res.json();
+          throw new Error(errorData.error || 'Erreur serveur');
+        }
+
+        form.reset();
+        form.dataset.id = '';
+        fetchProduits(currentPage, currentSearch);
+      } catch (err) {
+        console.error('❌ Erreur submit:', err);
+        if (err.message === 'Nom de produit déjà existant') {
+          alert('Erreur : Nom de produit déjà existant. Veuillez choisir un autre nom.');
+        } else {
+          alert(`Erreur : ${err.message}`);
+        }
+      }
+    });
+
+    // 🔹 Modifier un produit
+    window.editProduit = async id => {
+      try {
+        const res = await fetch(`${API_URL}/${id}`);
+        if (!res.ok) throw new Error('Impossible de charger le produit');
+        const p = await res.json();
+        form.dataset.id = p.id;
+        form.nom.value = p.nom;
+        form.type.value = p.type;
+        form.prix.value = p.prix;
+        form.quantite_stock.value = p.quantite_stock;
+        form.quantite_vitrine.value = p.quantite_vitrine;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err) {
+        console.error('❌ Erreur editProduit:', err);
+        alert(err.message);
+      }
+    };
+
+    // 🔹 Supprimer un produit (recharge la page courante)
+    window.deleteProduit = async id => {
+      if (!confirm('Voulez-vous vraiment supprimer ce produit ?')) return;
+      try {
+        const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Erreur lors de la suppression');
+        fetchProduits(currentPage, currentSearch);
+      } catch (err) {
+        console.error('❌ Erreur deleteProduit:', err);
+        alert(err.message);
+      }
+    };
+
+    // 🔹 Écouter Enter sur recherche
+    searchInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') performSearch();
+    });
+
+    fetchProduits();
+  </script>
+</body>
+</html>

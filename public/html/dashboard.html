@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Gestion des Matières Premières</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background-color: #f9fafb; }
+    .sidebar { background: linear-gradient(to bottom right, #ec4899, #f43f5e); }
+    .sidebar a:hover { background-color: rgba(255,255,255,0.1); }
+    .toast { position: fixed; top: 20px; right: 20px; padding:1rem 1.5rem; border-radius:0.5rem; color:white; font-weight:500; z-index:1000; transform: translateX(100%); transition: transform 0.3s ease;}
+    .toast.show { transform: translateX(0); }
+    .toast.success { background-color: #10b981; }
+    .toast.error { background-color: #ef4444; }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 50;}
+  </style>
+</head>
+<body class="flex h-screen">
+
+<!-- SIDEBAR -->
+<aside class="sidebar w-64 p-6 text-white flex flex-col">
+  <h2 class="text-2xl font-bold mb-8">🍰 Pâtisserie Sucrée</h2>
+  <nav class="flex-1 flex flex-col">
+    <a href="dashboard.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 bg-white/10"><i class="fas fa-box"></i> Matières Premières</a>
+    <a href="consommation.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-chart-line"></i> Consommations</a>
+    <a href="produit.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-birthday-cake"></i> Produits</a>
+    <a href="vente.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-cash-register"></i> Ventes</a>
+    <a href="commandes.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-receipt"></i> Commandes</a>
+    <a href="modifierProfile.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-user-edit"></i> Modifier Profil</a>
+    <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
+  </nav>
+</aside>
+
+<!-- MAIN -->
+<main class="flex-1 p-8 overflow-auto">
+  <div class="flex justify-between items-center mb-4">
+    <h1 class="text-3xl font-bold text-gray-800">Gestion des Matières Premières</h1>
+    <input type="text" id="searchInput" placeholder="Rechercher..." class="border p-2 rounded-lg">
+  </div>
+
+  <!-- FORMULAIRE -->
+  <section class="bg-white p-6 rounded-xl shadow mb-8">
+    <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+      <i class="fas fa-plus-circle text-pink-500 mr-2"></i>
+      <span id="formTitle">Ajouter une matière première</span>
+    </h2>
+
+    <form id="matiereForm" class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <input type="hidden" id="editId">
+      <div class="col-span-1 sm:col-span-4">
+        <input type="text" id="nom" placeholder="Nom de la matière" required class="border p-2 rounded-lg w-full" />
+        <span id="errorNom" class="text-red-600 text-sm mt-1 hidden"></span>
+      </div>
+      <input type="number" id="quantite_actuelle" placeholder="Quantité actuelle" min="0" step="0.01" required class="border p-2 rounded-lg" />
+      <input type="number" id="quantite_minimale" placeholder="Quantité minimale" min="0" step="0.01" required class="border p-2 rounded-lg" />
+      <input type="text" id="fournisseur_nom" placeholder="Nom du fournisseur" class="border p-2 rounded-lg" />
+      <input type="text" id="fournisseur_prenom" placeholder="Prénom du fournisseur" class="border p-2 rounded-lg" />
+      <input type="email" id="fournisseur_email" placeholder="Email du fournisseur" class="border p-2 rounded-lg" />
+      <input type="text" id="fournisseur_telephone" placeholder="Téléphone du fournisseur" class="border p-2 rounded-lg" />
+
+      <div class="flex gap-2 sm:justify-end col-span-4">
+        <button type="button" id="cancelEdit" class="hidden bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">Annuler</button>
+        <button type="submit" class="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg">
+          <i class="fas fa-save mr-1"></i> <span id="submitText">Enregistrer</span>
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <!-- TABLEAU -->
+  <section class="bg-white p-6 rounded-xl shadow">
+    <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+      <i class="fas fa-boxes text-yellow-500 mr-2"></i>
+      Liste des matières premières
+    </h2>
+
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse text-left">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="p-3 border-b">Nom</th>
+            <th class="p-3 border-b">Quantité actuelle</th>
+            <th class="p-3 border-b">Quantité minimale</th>
+            <th class="p-3 border-b">Fournisseur</th>
+            <th class="p-3 border-b">Email</th>
+            <th class="p-3 border-b">Téléphone</th>
+            <th class="p-3 border-b text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="matiereTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="mt-4 flex justify-center gap-2" id="pagination"></div>
+  </section>
+</main>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<!-- MODAL STOCK -->
+<div id="stockModal" class="modal">
+  <div class="bg-white p-6 rounded-xl shadow-lg w-80">
+    <h3 class="text-lg font-semibold mb-4" id="modalTitle">Modifier Quantité</h3>
+    <input type="number" id="stockValue" placeholder="Entrez la quantité" min="0" step="0.01" class="w-full border p-2 rounded-lg mb-4" />
+    <div class="flex justify-end gap-2">
+      <button id="cancelStock" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg">Annuler</button>
+      <button id="saveStock" class="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg">Valider</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL = '/api/matieres';
+let currentPage = 1;
+let totalPages = 1;
+let searchQuery = '';
+let currentStockId = null;
+let currentStockAction = null;
+
+// ELEMENTS
+const form = document.getElementById('matiereForm');
+const tableBody = document.getElementById('matiereTableBody');
+const toast = document.getElementById('toast');
+const modal = document.getElementById('stockModal');
+const stockInput = document.getElementById('stockValue');
+const modalTitle = document.getElementById('modalTitle');
+const cancelStock = document.getElementById('cancelStock');
+const saveStock = document.getElementById('saveStock');
+const cancelEdit = document.getElementById('cancelEdit');
+const searchInput = document.getElementById('searchInput');
+const pagination = document.getElementById('pagination');
+const errorNom = document.getElementById('errorNom');
+const formTitle = document.getElementById('formTitle');
+const submitText = document.getElementById('submitText');
+
+// TOAST
+function showToast(msg, type='success'){
+  toast.textContent = msg;
+  toast.className = `toast ${type} show`;
+  setTimeout(()=>toast.classList.remove('show'), 3000);
+}
+
+// FETCH MATIERES
+async function fetchMatieres(){
+  try {
+    const res = await fetch(`${API_URL}?page=${currentPage}&search=${encodeURIComponent(searchQuery)}`);
+    if(!res.ok) throw new Error('Erreur serveur');
+    const data = await res.json();
+    renderTable(data.matieres);
+    totalPages = data.pagination.totalPages || 1;
+    renderPagination();
+  } catch(err){
+    showToast(err.message, 'error');
+  }
+}
+
+// RENDER TABLE
+function renderTable(matieres){
+  if(!matieres.length){
+    tableBody.innerHTML = `<tr><td colspan="7" class="p-3 text-center text-gray-500">Aucune matière trouvée.</td></tr>`;
+    return;
+  }
+  tableBody.innerHTML = matieres.map(m => {
+    // Sécuriser les strings pour JSON
+    const safe = str => str ? str.replace(/'/g,"&#39;") : '';
+    return `
+    <tr class="hover:bg-gray-50 border-b">
+      <td class="p-3">${m.nom}</td>
+      <td class="p-3">${m.quantite_actuelle}</td>
+      <td class="p-3">${m.quantite_minimale}</td>
+      <td class="p-3">${[m.fournisseur_nom, m.fournisseur_prenom].filter(Boolean).join(' ') || '-'}</td>
+      <td class="p-3">${m.fournisseur_email || '-'}</td>
+      <td class="p-3">${m.fournisseur_telephone || '-'}</td>
+      <td class="p-3 text-center space-x-2">
+        <button onclick="openStockModal(${m.id}, 'add')" class="text-green-600 hover:text-green-800"><i class="fas fa-plus"></i></button>
+        <button onclick="openStockModal(${m.id}, 'consume')" class="text-yellow-600 hover:text-yellow-800"><i class="fas fa-utensils"></i></button>
+        <button onclick="editMatiere(${m.id}, '${safe(m.nom)}', ${m.quantite_actuelle}, ${m.quantite_minimale}, '${safe(m.fournisseur_nom)}', '${safe(m.fournisseur_prenom)}', '${safe(m.fournisseur_email)}', '${safe(m.fournisseur_telephone)}')" class="text-blue-500 hover:text-blue-700"><i class="fas fa-edit"></i></button>
+        <button onclick="deleteMatiere(${m.id})" class="text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// PAGINATION
+function renderPagination(){
+  pagination.innerHTML='';
+  if(totalPages <=1) return;
+  const createBtn = (text, disabled, callback, isCurrent=false) => {
+    const btn=document.createElement('button');
+    btn.textContent=text;
+    btn.disabled=disabled;
+    btn.className=`px-3 py-1 rounded ${isCurrent?'bg-pink-500 text-white':disabled?'bg-gray-200 text-gray-400':'bg-gray-200 text-gray-700'}`;
+    btn.onclick=callback;
+    return btn;
+  };
+  pagination.appendChild(createBtn('«', currentPage===1, ()=>{ if(currentPage>1){ currentPage--; fetchMatieres(); }}));
+  for(let i=1;i<=totalPages;i++){
+    pagination.appendChild(createBtn(i, false, ()=>{ currentPage=i; fetchMatieres(); }, i===currentPage));
+  }
+  pagination.appendChild(createBtn('»', currentPage===totalPages, ()=>{ if(currentPage<totalPages){ currentPage++; fetchMatieres(); }}));
+}
+
+// DELETE MATIERE
+async function deleteMatiere(id){
+  if(!confirm('Voulez-vous vraiment supprimer cette matière ?')) return;
+  try {
+    const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+    const result = await res.json();
+    if(!res.ok) throw new Error(result.error || 'Erreur');
+    showToast(result.message, 'success');
+    fetchMatieres();
+  } catch(e){
+    showToast(e.message,'error');
+  }
+}
+
+// RESET FORM TO ADD MODE
+function resetFormToAdd() {
+  form.reset();
+  document.getElementById('editId').value = '';
+  formTitle.textContent = 'Ajouter une matière première';
+  submitText.textContent = 'Enregistrer';
+  cancelEdit.classList.add('hidden');
+  errorNom.classList.add('hidden');
+}
+
+// EDIT MATIERE
+function editMatiere(id, nom, quant_act, quant_min, fnom, fprenom, femail, fphone){
+  document.getElementById('editId').value = id;
+  document.getElementById('nom').value = nom;
+  document.getElementById('quantite_actuelle').value = quant_act;
+  document.getElementById('quantite_minimale').value = quant_min;
+  document.getElementById('fournisseur_nom').value = fnom || '';
+  document.getElementById('fournisseur_prenom').value = fprenom || '';
+  document.getElementById('fournisseur_email').value = femail || '';
+  document.getElementById('fournisseur_telephone').value = fphone || '';
+  formTitle.textContent = 'Modifier une matière première';
+  submitText.textContent = 'Mettre à jour';
+  cancelEdit.classList.remove('hidden');
+  // Scroll to form for better UX
+  document.querySelector('section.bg-white').scrollIntoView({ behavior: 'smooth' });
+}
+
+// CANCEL EDIT
+cancelEdit.onclick = () => {
+  resetFormToAdd();
+}
+
+// STOCK MODAL
+function openStockModal(id, action){
+  currentStockId=id;
+  currentStockAction=action;
+  modal.style.display='flex';
+  modalTitle.textContent = action==='add'?'Ajouter du stock':'Consommer du stock';
+  stockInput.value='';
+}
+
+cancelStock.onclick = ()=> modal.style.display='none';
+
+saveStock.onclick = async ()=>{
+  const value = parseFloat(stockInput.value);
+  if(!value || value<=0){
+    showToast('Quantité invalide','error');
+    return;
+  }
+  try{
+    const url = currentStockAction==='add'?`${API_URL}/add-stock/${currentStockId}`:`${API_URL}/consommer/${currentStockId}`;
+    const res = await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ value })
+    });
+    const result = await res.json();
+    if(!res.ok) throw new Error(result.error || 'Erreur');
+    showToast(result.message,'success');
+    modal.style.display='none';
+    fetchMatieres();
+  } catch(e){ showToast(e.message,'error'); }
+}
+
+// FORM SUBMIT
+form.onsubmit=async e=>{
+  e.preventDefault();
+  errorNom.classList.add('hidden');
+  const data={
+    nom: document.getElementById('nom').value.trim(),
+    quantite_actuelle: parseFloat(document.getElementById('quantite_actuelle').value),
+    quantite_minimale: parseFloat(document.getElementById('quantite_minimale').value),
+    fournisseur_nom: document.getElementById('fournisseur_nom').value.trim(),
+    fournisseur_prenom: document.getElementById('fournisseur_prenom').value.trim(),
+    fournisseur_email: document.getElementById('fournisseur_email').value.trim(),
+    fournisseur_telephone: document.getElementById('fournisseur_telephone').value.trim()
+  };
+  const id=document.getElementById('editId').value;
+  try{
+    const res = await fetch(`${API_URL}${id?'/'+id:''}`,{
+      method:id?'PATCH':'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(data)
+    });
+    const result = await res.json();
+    if(!res.ok){
+      if(result.error && result.error.includes('existe déjà')){
+        errorNom.textContent=`⚠️ La matière "${data.nom}" existe déjà.`;
+        errorNom.classList.remove('hidden');
+      } else throw new Error(result.error || 'Erreur');
+      return;
+    }
+    showToast(result.message || (id?'Matière mise à jour':'Matière ajoutée'),'success');
+    resetFormToAdd();
+    fetchMatieres();
+  } catch(e){ showToast(e.message,'error'); }
+};
+
+// SEARCH
+searchInput.oninput=e=>{
+  searchQuery=e.target.value.trim();
+  currentPage=1;
+  fetchMatieres();
+}
+
+// CLEAR ERROR ON INPUT
+document.getElementById('nom').addEventListener('input',()=>errorNom.classList.add('hidden'));
+
+// INITIAL FETCH
+fetchMatieres();
+</script>
+</body>
+</html>

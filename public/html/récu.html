@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reçu Commande - Pâtisserie Sucrée</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 🔹 Masquer les boutons à l'impression */
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-rose-50 flex items-center justify-center min-h-screen p-4">
+
+  <div id="receipt" class="bg-white w-full max-w-lg p-8 rounded-2xl shadow-lg border border-pink-200">
+    
+    <!-- 🌸 En-tête de la pâtisserie -->
+    <div class="text-center mb-6">
+      <h1 class="text-3xl font-bold text-pink-500 mb-2">🍰 Pâtisserie MOKA</h1>
+      <p class="text-gray-700">34 Avenue Habib Bougatfa , Tunis</p>
+      <p class="text-gray-700">📞 24 066 434</p>
+    </div>
+
+    <h2 class="text-xl font-semibold mb-4 text-gray-700 text-center">📄 Reçu de Commande</h2>
+
+    <!-- 🌷 Infos du client et commande -->
+    <div class="space-y-2 text-gray-700">
+      <p><span class="font-semibold">Client :</span> <span id="clientName"></span></p>
+      <p><span class="font-semibold">Téléphone :</span> <span id="clientPhone"></span></p>
+      <p><span class="font-semibold">Dimensions :</span> <span id="dimensions"></span></p>
+      <p><span class="font-semibold">Nombre d'étages :</span> <span id="etages"></span></p>
+      <p><span class="font-semibold">Prix :</span> <span id="prix"></span> DT</p>
+      <p><span class="font-semibold">Accompte :</span> <span id="accompte"></span> DT</p>
+      <p><span class="font-semibold">Date de livraison :</span> <span id="dateLivraison"></span></p>
+    </div>
+
+    <!-- 🌷 Description de la commande -->
+    <div class="mt-4">
+      <p class="font-semibold text-gray-700">Description :</p>
+      <p id="description" class="text-gray-600 whitespace-pre-wrap"></p>
+    </div>
+
+
+    <!-- 🌷 Boutons (non imprimables) -->
+    <div class="mt-8 flex justify-center gap-4 no-print">
+      <button onclick="window.print()" class="px-4 py-2 bg-pink-500 text-white rounded-lg shadow hover:bg-pink-600 transition">🖨 Imprimer</button>
+      <button onclick="window.close()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition">Fermer</button>
+    </div>
+  </div>
+
+  <script>
+    // 🔹 Récupérer les paramètres de l'URL
+    const params = new URLSearchParams(window.location.search);
+    const nom = params.get('nom_client') || '';
+    const prenom = params.get('prenom_client') || '';
+    const telephone = params.get('telephone') || '';
+    const longueur = params.get('longueur') || '';
+    const largeur = params.get('largeur') || '';
+    const etages = params.get('nombre_etages') || '';
+    const prix = params.get('prix') || '';
+    const accompte = params.get('accompte') || '';
+    const dateLivraison = params.get('date_livraison') ? new Date(params.get('date_livraison')).toLocaleDateString() : '';
+    const description = params.get('description') || '';
+ 
+
+    // 🔹 Remplir les champs
+    document.getElementById('clientName').textContent = `${nom} ${prenom}`;
+    document.getElementById('clientPhone').textContent = telephone;
+    document.getElementById('dimensions').textContent = `${longueur} x ${largeur} cm`;
+    document.getElementById('etages').textContent = etages;
+    document.getElementById('prix').textContent = parseFloat(prix).toFixed(2);
+    document.getElementById('accompte').textContent = parseFloat(accompte).toFixed(2);
+    document.getElementById('dateLivraison').textContent = dateLivraison;
+    document.getElementById('description').textContent = description;
+
+
+  </script>
+
+</body>
+</html>

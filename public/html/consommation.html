@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - Consommations</title>
+
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    body { background-color: #f9fafb; }
+    .sidebar { background: linear-gradient(to bottom right, #ec4899, #f43f5e); }
+    .sidebar a:hover { background-color: rgba(255,255,255,0.1); }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 1rem 1.5rem;
+      border-radius: 0.5rem;
+      color: white;
+      font-weight: 500;
+      z-index: 1000;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
+    .toast.show { transform: translateX(0); }
+    .toast.success { background-color: #10b981; }
+    .toast.error { background-color: #ef4444; }
+  </style>
+</head>
+
+<body class="flex h-screen">
+
+  <!-- Sidebar -->
+  <aside class="sidebar w-64 p-6 text-white flex flex-col">
+    <h2 class="text-2xl font-bold mb-8">🍰 Pâtisserie Sucrée</h2>
+    <nav class="flex-1">
+      <a href="dashboard.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10">
+        <i class="fas fa-box"></i> Matières Premières
+      </a>
+      <a href="consommation.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 bg-white/10">
+        <i class="fas fa-chart-line"></i> Consommations
+      </a>
+      <a href="produit.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10">
+        <i class="fas fa-birthday-cake"></i> Produits
+      </a>
+      <a href="vente.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10">
+        <i class="fas fa-cash-register"></i> Ventes
+      </a>
+      <a href="commandes.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10">
+        <i class="fas fa-receipt"></i> Commandes
+      </a>
+      <a href="modifierProfile.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10">
+        <i class="fas fa-user-edit"></i> Modifier Profil
+      </a>
+      <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg mt-auto hover:bg-white/10">
+        <i class="fas fa-sign-out-alt"></i> Déconnexion
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="flex-1 p-8 overflow-auto">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+      <h1 class="text-3xl font-bold text-gray-800">Consommations des Matières Premières</h1>
+      <div class="flex items-center gap-3 text-gray-700">
+        
+        
+      </div>
+    </div>
+
+    <!-- Tableau des consommations -->
+    <div class="bg-white p-6 rounded-xl shadow">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center" id="consommationHeader">
+        <i class="fas fa-chart-line text-blue-500 mr-2"></i> Total des consommations par matière et par jour
+      </h2>
+
+      <!-- Barre de recherche -->
+      <div class="mb-4 flex gap-2 flex-wrap items-center">
+        <input type="date" id="searchDate" class="border p-2 rounded-lg flex-1 max-w-xs" />
+        <input type="text" id="searchNom" placeholder="Nom de la matière première" class="border p-2 rounded-lg flex-1 max-w-xs" />
+        <button id="searchBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-1">
+          <i class="fas fa-search"></i> Rechercher
+        </button>
+        <button id="clearBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center gap-1">
+          <i class="fas fa-times"></i> Effacer
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse text-left">
+          <thead>
+            <tr class="bg-gray-100">
+              <th class="p-3 border-b border-gray-200">Nom de la matière</th>
+              <th class="p-3 border-b border-gray-200">Total quantité consommée</th>
+              <th class="p-3 border-b border-gray-200">Date</th>
+            </tr>
+          </thead>
+          <tbody id="consommationTableBody">
+            <tr>
+              <td colspan="3" class="p-3 text-center text-gray-500">Chargement des données...</td>
+            </tr>
+          </tbody>
+        </table>
+        <!-- Pagination sera ajoutée dynamiquement ici -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const API_BASE = '/api/consommations';
+    const tableBody = document.getElementById('consommationTableBody');
+    const toast = document.getElementById('toast');
+    const searchDateInput = document.getElementById('searchDate');
+    const searchNomInput = document.getElementById('searchNom');
+    const searchBtn = document.getElementById('searchBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const header = document.getElementById('consommationHeader');
+
+    let currentData = [];
+    let currentPage = 1;
+    let totalPages = 1;
+    let isDateSearch = false; // Flag pour activer la search avec date
+
+    function showToast(message, type = 'success') {
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    function formatDate(dateStr) {
+      return new Date(dateStr).toLocaleDateString('fr-FR');
+    }
+
+    async function fetchConsommations(nom = '', date = '', page = 1) {
+      try {
+        let url = `${API_BASE}?limit=10&offset=${(page - 1) * 10}&page=${page}`;
+        if (nom) url += `&nom=${encodeURIComponent(nom)}`;
+        if (date) {
+          const params = new URLSearchParams({ date, nom, limit: 10, offset: (page - 1) * 10, page });
+          url = `${API_BASE}/search?${params}`;
+          isDateSearch = true;
+        } else {
+          isDateSearch = false;
+        }
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Erreur HTTP: ${res.status}`);
+        const result = await res.json();
+        currentData = result.data || [];
+        currentPage = result.currentPage || 1;
+        totalPages = result.totalPages || 1;
+        renderTable(currentData);
+        renderPagination(result);
+        updateHeader(nom, date);
+      } catch (err) {
+        console.error(err);
+        tableBody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-500">Impossible de charger les données.</td></tr>`;
+        showToast('❌ Erreur lors du chargement', 'error');
+      }
+    }
+
+    function renderTable(data) {
+      if (!data || data.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-500">Aucune consommation trouvée.</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = data.map(c => `
+        <tr class="hover:bg-gray-50 border-b">
+          <td class="p-3 border-b border-gray-200">${c.nom || '-'}</td>
+          <td class="p-3 border-b border-gray-200">${c.total_quantite?.toFixed(2) || 0}</td>
+          <td class="p-3 border-b border-gray-200">${c.jour ? formatDate(c.jour) : '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderPagination(result) {
+      let paginationDiv = document.getElementById('pagination');
+      if (!paginationDiv) {
+        paginationDiv = document.createElement('div');
+        paginationDiv.id = 'pagination';
+        document.querySelector('.overflow-x-auto').appendChild(paginationDiv);
+      }
+      let paginationHtml = `
+        <div class="flex justify-center items-center gap-2 mt-4">
+          <button id="prevBtn" class="bg-gray-300 hover:bg-gray-400 px-3 py-1 rounded ${!result.hasPrev ? 'opacity-50 cursor-not-allowed' : ''}" ${!result.hasPrev ? 'disabled' : ''}>
+            Précédent
+          </button>
+          <span class="px-3 py-1">Page ${currentPage} sur ${totalPages}</span>
+          <button id="nextBtn" class="bg-gray-300 hover:bg-gray-400 px-3 py-1 rounded ${!result.hasNext ? 'opacity-50 cursor-not-allowed' : ''}" ${!result.hasNext ? 'disabled' : ''}>
+            Suivant
+          </button>
+        </div>
+      `;
+      paginationDiv.innerHTML = paginationHtml;
+    }
+
+    function updateHeader(nom, date) {
+      let headerText = '<i class="fas fa-chart-line text-blue-500 mr-2"></i> Consommations';
+      if (date) headerText += ` pour le ${formatDate(date)}`;
+      if (nom) headerText += ` | Matière: ${nom}`;
+      if (totalPages > 1) headerText += ` (Page ${currentPage}/${totalPages})`;
+      header.innerHTML = headerText;
+    }
+
+    // Événements
+    searchBtn.addEventListener('click', () => {
+      const nom = searchNomInput.value.trim();
+      const date = searchDateInput.value;
+      if (!date && !nom) {
+        showToast('Veuillez saisir une date ou un nom.', 'error');
+        return;
+      }
+      fetchConsommations(nom, date, 1);
+    });
+
+    clearBtn.addEventListener('click', () => {
+      searchDateInput.value = '';
+      searchNomInput.value = '';
+      isDateSearch = false;
+      fetchConsommations('', '', 1);
+    });
+
+    // Délégation pour boutons pagination (ajoutés dynamiquement)
+    document.addEventListener('click', (e) => {
+      if (e.target.id === 'prevBtn' && currentPage > 1) {
+        const nom = searchNomInput.value.trim();
+        const date = searchDateInput.value;
+        fetchConsommations(nom, date, currentPage - 1);
+      } else if (e.target.id === 'nextBtn' && currentPage < totalPages) {
+        const nom = searchNomInput.value.trim();
+        const date = searchDateInput.value;
+        fetchConsommations(nom, date, currentPage + 1);
+      }
+    });
+
+    // Chargement initial (sans filtre)
+    fetchConsommations();
+  </script>
+
+</body>
+</html>
