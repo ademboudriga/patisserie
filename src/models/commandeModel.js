@@ -1,4 +1,4 @@
-// 📁 src/models/commandeModel.js
+// 📁 src/models/commandeModel.js (updated)
 const db = require('../config/db');
 
 class CommandeModel {
@@ -68,6 +68,23 @@ class CommandeModel {
     } catch (err) {
       console.error('[DEBUG] Erreur getAll:', err.message);
       throw new Error('Erreur lors du chargement des commandes : ' + err.message);
+    }
+  }
+
+  // ✅ Commandes à venir (dans les 2 prochains jours)
+  static getUpcoming() {
+    try {
+      const stmt = db.prepare(`
+        SELECT * FROM commandes 
+        WHERE statut = 'en attente' 
+        AND date_livraison >= date('now', 'localtime')
+        AND date_livraison <= date('now', 'localtime', '+2 days')
+        ORDER BY date_livraison ASC
+      `);
+      return stmt.all();
+    } catch (err) {
+      console.error('[DEBUG] Erreur getUpcoming:', err.message);
+      throw new Error('Erreur lors de la récupération des commandes à venir : ' + err.message);
     }
   }
 

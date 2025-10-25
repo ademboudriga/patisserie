@@ -1,4 +1,4 @@
-// 📁 src/controllers/CommandeController.js
+// 📁 src/controllers/commandeController.js (updated)
 const CommandeModel = require('../models/commandeModel');
 
 class CommandeController {
@@ -31,6 +31,17 @@ class CommandeController {
       res.status(200).json(result);
     } catch (err) {
       console.error('[DEBUG] Erreur getAll:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+  // 🔹 Récupérer les commandes à venir (dans 2 jours)
+  static getUpcoming(req, res) {
+    try {
+      const commandes = CommandeModel.getUpcoming();
+      res.status(200).json(commandes);
+    } catch (err) {
+      console.error('[DEBUG] Erreur getUpcoming:', err.message);
       res.status(500).json({ error: err.message });
     }
   }

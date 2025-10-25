@@ -56,9 +56,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// ------------------------
-// Route de test
-// ------------------------
 app.get('/', (req, res) => {
   res.json({ message: 'Serveur Pâtisserie Sucrée opérationnel !' });
 });

@@ -15,6 +15,21 @@
     .toast.success { background-color: #10b981; }
     .toast.error { background-color: #ef4444; }
     .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 50;}
+    .notif-dropdown { position:absolute; top:100%; right:0; background:white; border:1px solid #e5e7eb; border-radius:0.5rem; box-shadow:0 10px 25px rgba(0,0,0,0.1); display:none; min-width:300px; max-height:400px; overflow-y:auto; z-index:100; padding:0.5rem 0;}
+    .notif-dropdown::before { content: ''; position: absolute; top: -10px; right: 20px; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 10px solid #e5e7eb; }
+    .notif-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-bottom: 1px solid #f3f4f6; transition: background-color 0.2s; cursor: pointer; }
+    .notif-item:hover { background-color: #f9fafb; }
+    .notif-item:last-child { border-bottom: none; }
+    .notif-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.75rem; }
+    .notif-icon.stock-low { background-color: #fef3c7; color: #d97706; }
+    .notif-icon.order-upcoming { background-color: #dbeafe; color: #1d4ed8; }
+    .notif-count { background: #ef4444; color:white; font-size:0.75rem; width:18px; height:18px; display:flex; align-items:center; justify-content:center; border-radius:50%; position:absolute; top:0; right:0; }
+    .notif-section { background: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 1rem; display: none; }
+    .notif-section h3 { color: #1f2937; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .notif-section .notif-item { border-bottom: 1px solid #e5e7eb; cursor: default; }
+    .notif-section .notif-item:hover { background-color: transparent; }
+    .view-all-btn { width: 100%; background: #f3f4f6; border: none; padding: 0.75rem; text-align: left; color: #6b7280; font-size: 0.875rem; transition: background-color 0.2s; cursor: pointer; }
+    .view-all-btn:hover { background: #e5e7eb; }
   </style>
 </head>
 <body class="flex h-screen">
@@ -37,15 +52,16 @@
 <main class="flex-1 p-8 overflow-auto">
   <div class="flex justify-between items-center mb-4">
     <h1 class="text-3xl font-bold text-gray-800">Gestion des Matières Premières</h1>
-    <div class="flex items-center gap-4">
-
-  <input type="text" id="searchInput" ...>
-</div>
-  <button id="notifBtn" class="text-gray-600 hover:text-pink-500 transition">
-    <i class="fas fa-bell text-2xl"></i>
-  </button>
-    <input type="text" id="searchInput" placeholder="Rechercher..." class="border p-2 rounded-lg">
+    <div class="relative">
+      <button id="notifBtn" class="relative text-gray-600 hover:text-pink-500 transition">
+        <i class="fas fa-bell text-2xl"></i>
+        <span id="notifCount" class="notif-count hidden">0</span>
+      </button>
+      <ul id="notifDropdown" class="notif-dropdown"></ul>
+    </div>
   </div>
+
+  <input type="text" id="searchInput" placeholder="Rechercher..." class="border p-2 rounded-lg mb-4 w-full">
 
   <!-- FORMULAIRE -->
   <section class="bg-white p-6 rounded-xl shadow mb-8">
@@ -76,6 +92,13 @@
     </form>
   </section>
 
+  <!-- SECTION NOTIFICATIONS COMPLETES -->
+  <section id="fullNotificationsSection" class="notif-section">
+    <h3><i class="fas fa-bell text-blue-500"></i> Toutes les Notifications</h3>
+    <div id="fullNotificationsList"></div>
+    <button onclick="hideFullNotifications()" class="mt-4 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">Fermer</button>
+  </section>
+
   <!-- TABLEAU -->
   <section class="bg-white p-6 rounded-xl shadow">
     <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
@@ -99,8 +122,6 @@
         <tbody id="matiereTableBody"></tbody>
       </table>
     </div>
-
-    <!-- Pagination -->
     <div class="mt-4 flex justify-center gap-2" id="pagination"></div>
   </section>
 </main>
@@ -122,11 +143,10 @@
 
 <script>
 const API_URL = '/api/matieres';
-let currentPage = 1;
-let totalPages = 1;
-let searchQuery = '';
-let currentStockId = null;
-let currentStockAction = null;
+const COMMANDES_URL = '/api/commandes';
+let currentPage = 1, totalPages = 1, searchQuery = '';
+let currentStockId=null, currentStockAction=null;
+let notifications=[], allMatieres=[];
 
 // ELEMENTS
 const form = document.getElementById('matiereForm');
@@ -143,150 +163,180 @@ const pagination = document.getElementById('pagination');
 const errorNom = document.getElementById('errorNom');
 const formTitle = document.getElementById('formTitle');
 const submitText = document.getElementById('submitText');
+const notifBtn = document.getElementById('notifBtn');
+const notifDropdown = document.getElementById('notifDropdown');
+const notifCount = document.getElementById('notifCount');
+const fullNotifSection = document.getElementById('fullNotificationsSection');
+const fullNotifList = document.getElementById('fullNotificationsList');
 
 // TOAST
-function showToast(msg, type='success'){
-  toast.textContent = msg;
-  toast.className = `toast ${type} show`;
-  setTimeout(()=>toast.classList.remove('show'), 3000);
+function showToast(msg,type='success'){
+  toast.textContent=msg;
+  toast.className=`toast ${type} show`;
+  setTimeout(()=>toast.classList.remove('show'),3000);
 }
 
-// FETCH MATIERES
-async function fetchMatieres(){
+// FETCH ALL MATIERES FOR NOTIFS
+async function fetchAllMatieres() {
   try {
+    const res = await fetch(`${API_URL}?limit=999`); // Fetch all without pagination
+    if (!res.ok) throw new Error('Erreur serveur');
+    const data = await res.json();
+    return data.matieres || [];
+  } catch (err) {
+    console.error('Erreur fetchAllMatieres:', err);
+    return [];
+  }
+}
+
+// FETCH COMMANDES À VENIR
+async function fetchUpcoming() {
+  try {
+    const res = await fetch(`${COMMANDES_URL}/upcoming`);
+    if (!res.ok) throw new Error('Erreur serveur');
+    return await res.json();
+  } catch (err) {
+    console.error('Erreur fetchUpcoming:', err);
+    return [];
+  }
+}
+
+// UPDATE NOTIFICATIONS (stocks bas + commandes à venir)
+async function updateNotifications() {
+  const matieres = await fetchAllMatieres();
+  const commandes = await fetchUpcoming();
+  
+  const stockNotifs = matieres.filter(m => parseFloat(m.quantite_actuelle) < parseFloat(m.quantite_minimale))
+    .map(m => ({ text: `Stock bas pour ${m.nom} (${m.quantite_actuelle})`, type: 'stock-low' }));
+  
+  const commandeNotifs = commandes.map(c => {
+    const dateLivraison = new Date(c.date_livraison).toLocaleDateString('fr-FR');
+    return { text: `Commande pour ${c.prenom_client} ${c.nom_client} à livrer le ${dateLivraison}`, type: 'order-upcoming' };
+  });
+
+  notifications = [...stockNotifs, ...commandeNotifs];
+  notifCount.textContent = notifications.length;
+  notifCount.classList.toggle('hidden', notifications.length === 0);
+}
+
+// RENDER NOTIF DROPDOWN
+function renderNotifications() {
+  if (notifications.length === 0) {
+    notifDropdown.innerHTML = '<li class="p-2 text-gray-500 text-center">Aucune notification</li>';
+    return;
+  }
+  
+  notifDropdown.innerHTML = notifications.map(n => `
+    <li class="notif-item">
+      <div class="notif-icon ${n.type}">
+        <i class="fas ${n.type === 'stock-low' ? 'fa-exclamation-triangle' : 'fa-calendar-alt'}"></i>
+      </div>
+      <span class="text-sm text-gray-700">${n.text}</span>
+    </li>
+  `).join('') + `
+    <button class="view-all-btn" onclick="showFullNotifications()">
+      <i class="fas fa-eye mr-2"></i> Voir toutes les notifications
+    </button>
+  `;
+}
+
+// SHOW FULL NOTIFICATIONS
+function showFullNotifications() {
+  notifDropdown.style.display = 'none';
+  fullNotifSection.style.display = 'block';
+  renderFullNotifications();
+  document.querySelector('main').scrollTo({ top: fullNotifSection.offsetTop, behavior: 'smooth' });
+}
+
+function renderFullNotifications() {
+  if (notifications.length === 0) {
+    fullNotifList.innerHTML = '<p class="text-gray-500 text-center">Aucune notification</p>';
+    return;
+  }
+  
+  fullNotifList.innerHTML = notifications.map(n => `
+    <div class="notif-item mb-2">
+      <div class="notif-icon ${n.type}">
+        <i class="fas ${n.type === 'stock-low' ? 'fa-exclamation-triangle' : 'fa-calendar-alt'}"></i>
+      </div>
+      <div>
+        <p class="text-sm font-medium text-gray-900">${n.text}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+function hideFullNotifications() {
+  fullNotifSection.style.display = 'none';
+}
+
+// FETCH MATIERES (PAGINATED)
+async function fetchMatieres(){
+  try{
     const res = await fetch(`${API_URL}?page=${currentPage}&search=${encodeURIComponent(searchQuery)}`);
     if(!res.ok) throw new Error('Erreur serveur');
     const data = await res.json();
     renderTable(data.matieres);
-    totalPages = data.pagination.totalPages || 1;
+    totalPages = data.pagination?.totalPages || 1;
     renderPagination();
-  } catch(err){
-    showToast(err.message, 'error');
-  }
+  }catch(err){ showToast(err.message,'error'); }
 }
 
 // RENDER TABLE
 function renderTable(matieres){
   if(!matieres.length){
-    tableBody.innerHTML = `<tr><td colspan="7" class="p-3 text-center text-gray-500">Aucune matière trouvée.</td></tr>`;
+    tableBody.innerHTML=`<tr><td colspan="7" class="p-3 text-center text-gray-500">Aucune matière trouvée.</td></tr>`;
     return;
   }
-  tableBody.innerHTML = matieres.map(m => {
-    // Sécuriser les strings pour JSON
-    const safe = str => str ? str.replace(/'/g,"&#39;") : '';
-    return `
-    <tr class="hover:bg-gray-50 border-b">
+  tableBody.innerHTML=matieres.map(m=>`
+    <tr data-id="${m.id}" 
+        data-nom="${m.nom}" data-quant="${m.quantite_actuelle}" data-quantmin="${m.quantite_minimale}" 
+        data-fnom="${m.fournisseur_nom||''}" data-fprenom="${m.fournisseur_prenom||''}" 
+        data-femail="${m.fournisseur_email||''}" data-fphone="${m.fournisseur_telephone||''}" 
+        class="hover:bg-gray-50 border-b">
       <td class="p-3">${m.nom}</td>
       <td class="p-3">${m.quantite_actuelle}</td>
       <td class="p-3">${m.quantite_minimale}</td>
-      <td class="p-3">${[m.fournisseur_nom, m.fournisseur_prenom].filter(Boolean).join(' ') || '-'}</td>
-      <td class="p-3">${m.fournisseur_email || '-'}</td>
-      <td class="p-3">${m.fournisseur_telephone || '-'}</td>
+      <td class="p-3">${[m.fournisseur_nom, m.fournisseur_prenom].filter(Boolean).join(' ')||'-'}</td>
+      <td class="p-3">${m.fournisseur_email||'-'}</td>
+      <td class="p-3">${m.fournisseur_telephone||'-'}</td>
       <td class="p-3 text-center space-x-2">
-        <button onclick="openStockModal(${m.id}, 'add')" class="text-green-600 hover:text-green-800"><i class="fas fa-plus"></i></button>
-        <button onclick="openStockModal(${m.id}, 'consume')" class="text-yellow-600 hover:text-yellow-800"><i class="fas fa-utensils"></i></button>
-        <button onclick="editMatiere(${m.id}, '${safe(m.nom)}', ${m.quantite_actuelle}, ${m.quantite_minimale}, '${safe(m.fournisseur_nom)}', '${safe(m.fournisseur_prenom)}', '${safe(m.fournisseur_email)}', '${safe(m.fournisseur_telephone)}')" class="text-blue-500 hover:text-blue-700"><i class="fas fa-edit"></i></button>
+        <button onclick="openStockModal(${m.id},'add')" class="text-green-600 hover:text-green-800"><i class="fas fa-plus"></i></button>
+        <button onclick="openStockModal(${m.id},'consume')" class="text-yellow-600 hover:text-yellow-800"><i class="fas fa-utensils"></i></button>
+        <button onclick="editMatiereRow(${m.id})" class="text-blue-500 hover:text-blue-700"><i class="fas fa-edit"></i></button>
         <button onclick="deleteMatiere(${m.id})" class="text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button>
       </td>
-    </tr>`;
-  }).join('');
-}
-
-// PAGINATION
-function renderPagination(){
-  pagination.innerHTML='';
-  if(totalPages <=1) return;
-  const createBtn = (text, disabled, callback, isCurrent=false) => {
-    const btn=document.createElement('button');
-    btn.textContent=text;
-    btn.disabled=disabled;
-    btn.className=`px-3 py-1 rounded ${isCurrent?'bg-pink-500 text-white':disabled?'bg-gray-200 text-gray-400':'bg-gray-200 text-gray-700'}`;
-    btn.onclick=callback;
-    return btn;
-  };
-  pagination.appendChild(createBtn('«', currentPage===1, ()=>{ if(currentPage>1){ currentPage--; fetchMatieres(); }}));
-  for(let i=1;i<=totalPages;i++){
-    pagination.appendChild(createBtn(i, false, ()=>{ currentPage=i; fetchMatieres(); }, i===currentPage));
-  }
-  pagination.appendChild(createBtn('»', currentPage===totalPages, ()=>{ if(currentPage<totalPages){ currentPage++; fetchMatieres(); }}));
-}
-
-// DELETE MATIERE
-async function deleteMatiere(id){
-  if(!confirm('Voulez-vous vraiment supprimer cette matière ?')) return;
-  try {
-    const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-    const result = await res.json();
-    if(!res.ok) throw new Error(result.error || 'Erreur');
-    showToast(result.message, 'success');
-    fetchMatieres();
-  } catch(e){
-    showToast(e.message,'error');
-  }
-}
-
-// RESET FORM TO ADD MODE
-function resetFormToAdd() {
-  form.reset();
-  document.getElementById('editId').value = '';
-  formTitle.textContent = 'Ajouter une matière première';
-  submitText.textContent = 'Enregistrer';
-  cancelEdit.classList.add('hidden');
-  errorNom.classList.add('hidden');
+    </tr>`).join('');
 }
 
 // EDIT MATIERE
-function editMatiere(id, nom, quant_act, quant_min, fnom, fprenom, femail, fphone){
+function editMatiereRow(id){
+  const row = document.querySelector(`tr[data-id='${id}']`);
+  if(!row) return;
   document.getElementById('editId').value = id;
-  document.getElementById('nom').value = nom;
-  document.getElementById('quantite_actuelle').value = quant_act;
-  document.getElementById('quantite_minimale').value = quant_min;
-  document.getElementById('fournisseur_nom').value = fnom || '';
-  document.getElementById('fournisseur_prenom').value = fprenom || '';
-  document.getElementById('fournisseur_email').value = femail || '';
-  document.getElementById('fournisseur_telephone').value = fphone || '';
-  formTitle.textContent = 'Modifier une matière première';
-  submitText.textContent = 'Mettre à jour';
+  document.getElementById('nom').value = row.dataset.nom;
+  document.getElementById('quantite_actuelle').value = row.dataset.quant;
+  document.getElementById('quantite_minimale').value = row.dataset.quantmin;
+  document.getElementById('fournisseur_nom').value = row.dataset.fnom;
+  document.getElementById('fournisseur_prenom').value = row.dataset.fprenom;
+  document.getElementById('fournisseur_email').value = row.dataset.femail;
+  document.getElementById('fournisseur_telephone').value = row.dataset.fphone;
+
+  formTitle.textContent='Modifier une matière première';
+  submitText.textContent='Mettre à jour';
   cancelEdit.classList.remove('hidden');
-  // Scroll to form for better UX
-  document.querySelector('section.bg-white').scrollIntoView({ behavior: 'smooth' });
+  document.querySelector('section.bg-white').scrollIntoView({behavior:'smooth'});
 }
 
 // CANCEL EDIT
-cancelEdit.onclick = () => {
-  resetFormToAdd();
-}
-
-// STOCK MODAL
-function openStockModal(id, action){
-  currentStockId=id;
-  currentStockAction=action;
-  modal.style.display='flex';
-  modalTitle.textContent = action==='add'?'Ajouter du stock':'Consommer du stock';
-  stockInput.value='';
-}
-
-cancelStock.onclick = ()=> modal.style.display='none';
-
-saveStock.onclick = async ()=>{
-  const value = parseFloat(stockInput.value);
-  if(!value || value<=0){
-    showToast('Quantité invalide','error');
-    return;
-  }
-  try{
-    const url = currentStockAction==='add'?`${API_URL}/add-stock/${currentStockId}`:`${API_URL}/consommer/${currentStockId}`;
-    const res = await fetch(url,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ value })
-    });
-    const result = await res.json();
-    if(!res.ok) throw new Error(result.error || 'Erreur');
-    showToast(result.message,'success');
-    modal.style.display='none';
-    fetchMatieres();
-  } catch(e){ showToast(e.message,'error'); }
+cancelEdit.onclick=()=>resetFormToAdd();
+function resetFormToAdd(){
+  form.reset();
+  document.getElementById('editId').value='';
+  formTitle.textContent='Ajouter une matière première';
+  submitText.textContent='Enregistrer';
+  cancelEdit.classList.add('hidden');
+  errorNom.classList.add('hidden');
 }
 
 // FORM SUBMIT
@@ -303,38 +353,96 @@ form.onsubmit=async e=>{
     fournisseur_telephone: document.getElementById('fournisseur_telephone').value.trim()
   };
   const id=document.getElementById('editId').value;
+  const url = id?`${API_URL}/${id}`:API_URL;
+  const method = id?'PATCH':'POST';
   try{
-    const res = await fetch(`${API_URL}${id?'/'+id:''}`,{
-      method:id?'PATCH':'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(data)
-    });
+    const res = await fetch(url,{method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
     const result = await res.json();
     if(!res.ok){
-      if(result.error && result.error.includes('existe déjà')){
-        errorNom.textContent=`⚠️ La matière "${data.nom}" existe déjà.`;
+      if(result.error && result.error.includes('nom')){
+        errorNom.textContent=result.error;
         errorNom.classList.remove('hidden');
-      } else throw new Error(result.error || 'Erreur');
-      return;
+      } else throw new Error(result.error||'Erreur');
+    } else {
+      showToast(result.message,'success');
+      resetFormToAdd();
+      fetchMatieres();
+      updateNotifications(); // Refresh notifs after update
     }
-    showToast(result.message || (id?'Matière mise à jour':'Matière ajoutée'),'success');
-    resetFormToAdd();
+  }catch(e){ showToast(e.message,'error'); }
+};
+
+// DELETE MATIERE
+async function deleteMatiere(id){
+  if(!confirm('Voulez-vous vraiment supprimer cette matière ?')) return;
+  try{
+    const res = await fetch(`${API_URL}/${id}`,{method:'DELETE'});
+    const result = await res.json();
+    if(!res.ok) throw new Error(result.error||'Erreur');
+    showToast(result.message,'success');
     fetchMatieres();
-  } catch(e){ showToast(e.message,'error'); }
+    updateNotifications(); // Refresh notifs after delete
+  }catch(e){ showToast(e.message,'error'); }
+}
+
+// STOCK MODAL
+function openStockModal(id,action){
+  currentStockId=id;
+  currentStockAction=action;
+  modal.style.display='flex';
+  modalTitle.textContent=action==='add'?'Ajouter du stock':'Consommer du stock';
+  stockInput.value='';
+}
+cancelStock.onclick=()=>modal.style.display='none';
+saveStock.onclick=async()=>{
+  const value=parseFloat(stockInput.value);
+  if(!value||value<=0){ showToast('Quantité invalide','error'); return; }
+  try{
+    const url = currentStockAction==='add'?`${API_URL}/add-stock/${currentStockId}`:`${API_URL}/consommer/${currentStockId}`;
+    const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})});
+    const result = await res.json();
+    if(!res.ok) throw new Error(result.error||'Erreur');
+    showToast(result.message,'success');
+    modal.style.display='none';
+    fetchMatieres();
+    updateNotifications(); // Refresh notifs after stock change
+  }catch(e){ showToast(e.message,'error'); }
 };
 
 // SEARCH
-searchInput.oninput=e=>{
-  searchQuery=e.target.value.trim();
-  currentPage=1;
-  fetchMatieres();
-}
+searchInput.oninput=e=>{ searchQuery=e.target.value; currentPage=1; fetchMatieres(); };
 
-// CLEAR ERROR ON INPUT
+// CLEAR ERROR
 document.getElementById('nom').addEventListener('input',()=>errorNom.classList.add('hidden'));
 
-// INITIAL FETCH
-fetchMatieres();
+// PAGINATION
+function renderPagination(){
+  pagination.innerHTML='';
+  for(let i=1;i<=totalPages;i++){
+    const btn = document.createElement('button');
+    btn.textContent=i;
+    btn.className=`px-3 py-1 rounded ${i===currentPage?'bg-pink-500 text-white':'bg-gray-200 text-gray-700'}`;
+    btn.onclick=()=>{ currentPage=i; fetchMatieres(); };
+    pagination.appendChild(btn);
+  }
+}
+
+// NOTIFICATIONS
+notifBtn.onclick=()=>{
+  notifDropdown.style.display=notifDropdown.style.display==='block'?'none':'block';
+  if (notifDropdown.style.display === 'block') renderNotifications();
+};
+
+// CLOSE DROPDOWN ON CLICK OUTSIDE
+document.addEventListener('click', (e) => {
+  if (!notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
+    notifDropdown.style.display = 'none';
+  }
+});
+
+// INITIAL LOAD
+updateNotifications().then(() => fetchMatieres());
+
 </script>
 </body>
 </html>
