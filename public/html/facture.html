@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Gestion des Factures</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background-color: #f9fafb; }
+    .sidebar { background: linear-gradient(to bottom right, #ec4899, #f43f5e); }
+    .sidebar a:hover { background-color: rgba(255,255,255,0.1); }
+    .toast { position: fixed; top: 20px; right: 20px; padding:1rem 1.5rem; border-radius:0.5rem; color:white; font-weight:500; z-index:1000; transform: translateX(100%); transition: transform 0.3s ease;}
+    .toast.show { transform: translateX(0); }
+    .toast.success { background-color: #10b981; }
+    .toast.error { background-color: #ef4444; }
+    .modal { display: none; position: fixed; z-index: 1050; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+    .modal-content { background-color: #fefefe; margin: 2% auto; padding: 0; border: none; border-radius: 0.75rem; width: 90%; max-width: 800px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); max-height: 90vh; overflow-y: auto; }
+    .modal-header { padding: 1.5rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; background-color: #f9fafb; border-radius: 0.75rem 0.75rem 0 0; }
+    .modal-body { padding: 1.5rem; }
+    .close { color: #9ca3af; float: right; font-size: 24px; font-weight: bold; cursor: pointer; line-height: 1; transition: color 0.2s; }
+    .close:hover { color: #374151; }
+    .invoice-section { background-color: #f9fafb; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem; border: 1px solid #e5e7eb; }
+    .products-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    .products-table th, .products-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    .products-table th { background-color: #f3f4f6; font-weight: 600; }
+    .products-table tr:hover { background-color: #f9fafb; }
+    .total-row { font-weight: bold; background-color: #f3f4f6; border-top: 2px solid #e5e7eb; }
+    .pagination { display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-top: 2rem; }
+    .pagination button { padding: 0.5rem 1rem; border: 1px solid #d1d5db; background-color: white; color: #374151; border-radius: 0.375rem; cursor: pointer; transition: background-color 0.2s; }
+    .pagination button:hover:not(:disabled) { background-color: #f3f4f6; }
+    .pagination button:disabled { color: #9ca3af; cursor: not-allowed; }
+    .pagination button.active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+  </style>
+</head>
+<body class="flex h-screen">
+
+<!-- SIDEBAR -->
+<aside class="sidebar w-64 p-6 text-white flex flex-col">
+  <h2 class="text-2xl font-bold mb-8">🍰 Pâtisserie</h2>
+  <nav class="flex-1 flex flex-col">
+    <a href="dashboard.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-box"></i> Matières Premières</a>
+    <a href="consommation.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-chart-line"></i> Consommations</a>
+    <a href="produit.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-birthday-cake"></i> Produits</a>
+    <a href="vente.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-cash-register"></i> Ventes</a>
+    <a href="commandes.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-receipt"></i> Commandes</a>
+    <a href="facture.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 bg-white/10"><i class="fas fa-file-invoice-dollar"></i> Factures</a>
+    <a href="modifierProfile.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-user-edit"></i> Modifier Profil</a>
+    <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
+  </nav>
+</aside>
+
+<!-- MAIN -->
+<main class="flex-1 p-8 overflow-auto">
+  <h1 class="text-3xl font-bold text-gray-800 mb-6">Gestion des Factures</h1>
+
+  <!-- FORMULAIRE FACTURE -->
+  <section class="bg-white p-6 rounded-xl shadow mb-8">
+    <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+      <i class="fas fa-plus-circle text-pink-500 mr-2"></i>
+      Créer / Modifier une facture
+    </h2>
+
+    <form id="factureForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="col-span-3">
+        <input type="text" id="clientNom" placeholder="Nom complet du client" required class="border p-2 rounded-lg w-full" />
+      </div>
+
+      <div class="col-span-3">
+        <input type="number" id="acompte" placeholder="Acompte (en DT)" min="0" step="0.01" class="border p-2 rounded-lg w-full" />
+      </div>
+
+      <!-- PRODUITS -->
+      <div class="col-span-3">
+        <h3 class="text-lg font-semibold mb-2">Produits</h3>
+        <div id="produitsContainer" class="space-y-2"></div>
+        <button type="button" id="addProduit" class="mt-3 bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg"><i class="fas fa-plus"></i> Ajouter un produit</button>
+      </div>
+
+      <div class="col-span-3 flex justify-end">
+        <button type="submit" class="bg-pink-500 hover:bg-pink-600 text-white px-6 py-2 rounded-lg"><i class="fas fa-save mr-2"></i> Enregistrer</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- RECHERCHE -->
+  <section class="bg-white p-6 rounded-xl shadow mb-8">
+    <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+      <i class="fas fa-search text-blue-500 mr-2"></i>
+      Recherche
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nom du client</label>
+        <input type="text" id="searchClient" placeholder="Rechercher par nom..." class="border p-2 rounded-lg w-full" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Date unique</label>
+        <input type="date" id="searchDate" class="border p-2 rounded-lg w-full" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
+        <input type="date" id="searchStartDate" class="border p-2 rounded-lg w-full" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
+        <input type="date" id="searchEndDate" class="border p-2 rounded-lg w-full" />
+      </div>
+    </div>
+    <div class="flex gap-4 mt-4">
+      <button onclick="searchFactures()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"><i class="fas fa-search mr-2"></i> Rechercher</button>
+      <button onclick="clearSearch()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"><i class="fas fa-refresh mr-2"></i> Réinitialiser</button>
+    </div>
+  </section>
+
+  <!-- TABLEAU FACTURES -->
+  <section class="bg-white p-6 rounded-xl shadow">
+    <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+      <i class="fas fa-file-invoice text-blue-500 mr-2"></i>
+      Liste des factures
+    </h2>
+
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse text-left">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="p-3 border-b">ID</th>
+            <th class="p-3 border-b">Nom du client</th>
+            <th class="p-3 border-b">Date</th>
+            <th class="p-3 border-b">Acompte (DT)</th>
+            <th class="p-3 border-b">Total (DT)</th>
+            <th class="p-3 border-b text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="factureTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- PAGINATION -->
+    <div id="paginationContainer" class="pagination mt-6"></div>
+  </section>
+</main>
+
+<!-- MODAL DÉTAILS FACTURE -->
+<div id="detailsModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 class="text-xl font-bold text-gray-800">Détails de la Facture</h3>
+      <span class="close" onclick="closeModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div id="detailsContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<script>
+  // === VARIABLES GLOBALES ===
+  let editingFactureId = null;
+  let produitsList = []; // Liste des produits ajoutés pour le formulaire
+  let currentFactureDetails = null;
+  let currentSearchParams = {}; // Pour stocker les params de recherche actuels
+  let currentPage = 1;
+  let totalPages = 1;
+  let limit = 10;
+
+  // === FONCTIONS UTILITAIRES ===
+  const API_BASE = '/api'; // Ajuster selon votre configuration (ex: http://localhost:3000/api)
+
+  /**
+   * Afficher un toast
+   * @param {string} message - Message à afficher
+   * @param {string} type - 'success' ou 'error'
+   */
+  const showToast = (message, type = 'success') => {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = `toast ${type} show`;
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
+  };
+
+  /**
+   * Requête fetch avec gestion d'erreurs
+   * @param {string} url - URL de l'API
+   * @param {Object} options - Options fetch
+   * @returns {Promise} - Résultat de la requête
+   */
+  const apiRequest = async (url, options = {}) => {
+    try {
+      const response = await fetch(`${API_BASE}${url}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        console.error('API Error Details:', data); // Debug: afficher les détails de l'erreur
+        const errorMsg = data.error || data.message || 'Erreur API';
+        throw new Error(errorMsg);
+      }
+      return data;
+    } catch (error) {
+      showToast(error.message, 'error');
+      throw error;
+    }
+  };
+
+  /**
+   * Créer un div pour un produit à l'index donné
+   * @param {number} index - Index dans produitsList
+   */
+  const createDivForIndex = (index) => {
+    const container = document.getElementById('produitsContainer');
+    const data = produitsList[index];
+    const produitDiv = document.createElement('div');
+    produitDiv.className = 'flex gap-2 items-end bg-gray-50 p-3 rounded-lg';
+    produitDiv.innerHTML = `
+      <input type="text" placeholder="Nom du produit" class="flex-1 border p-2 rounded-lg" data-index="${index}" data-field="produit_name" required />
+      <input type="number" placeholder="Prix unitaire (DT)" min="0" step="0.01" class="w-24 border p-2 rounded-lg" data-index="${index}" data-field="prix_unitaire" required />
+      <input type="number" placeholder="Quantité" min="1" class="w-20 border p-2 rounded-lg" data-index="${index}" data-field="quantite" required />
+      <button type="button" class="text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
+    `;
+    container.appendChild(produitDiv);
+
+    // Définir les valeurs initiales
+    ['produit_name', 'prix_unitaire', 'quantite'].forEach(field => {
+      const input = produitDiv.querySelector(`[data-field="${field}"]`);
+      const defaultValue = field === 'quantite' ? 1 : (field === 'prix_unitaire' ? 0 : '');
+      input.value = data[field] || defaultValue;
+
+      // Écouteur d'événements pour mise à jour en temps réel (permet la modification)
+      input.addEventListener('input', (e) => {
+        data[field] = e.target.value;
+      });
+    });
+
+    // Événement suppression
+    produitDiv.querySelector('button').addEventListener('click', () => {
+      produitsList.splice(index, 1);
+      produitDiv.remove();
+      rebuildProduitsContainer();
+    });
+  };
+
+  /**
+   * Reconstruire le container des produits à partir de produitsList
+   */
+  const rebuildProduitsContainer = () => {
+    const container = document.getElementById('produitsContainer');
+    container.innerHTML = '';
+    produitsList.forEach((_, i) => createDivForIndex(i));
+  };
+
+  /**
+   * Ajouter un produit vide
+   */
+  const addProduit = () => {
+    const index = produitsList.length;
+    produitsList.push({
+      produit_name: '',
+      prix_unitaire: 0,
+      quantite: 1
+    });
+    createDivForIndex(index);
+  };
+
+  /**
+   * Calculer le total des produits valides
+   * @returns {number} - Total
+   */
+  const calculateTotal = () => {
+    return produitsList.reduce((total, p) => {
+      const name = p.produit_name ? p.produit_name.trim() : '';
+      const prix = parseFloat(p.prix_unitaire) || 0;
+      const qte = parseInt(p.quantite) || 0;
+      return name && !isNaN(prix) && prix >= 0 && !isNaN(qte) && qte >= 1
+        ? total + (prix * qte)
+        : total;
+    }, 0);
+  };
+
+  /**
+   * Obtenir les produits valides
+   * @returns {Array} - Produits valides filtrés
+   */
+  const getValidProduits = () => {
+    return produitsList.filter(p => {
+      const name = p.produit_name ? p.produit_name.trim() : '';
+      const prix = parseFloat(p.prix_unitaire);
+      const qte = parseInt(p.quantite);
+      return name && !isNaN(prix) && prix >= 0 && !isNaN(qte) && qte >= 1;
+    });
+  };
+
+  /**
+   * Effectuer une recherche
+   */
+  window.searchFactures = async () => {
+    const client = document.getElementById('searchClient').value.trim();
+    const date = document.getElementById('searchDate').value;
+    const startDate = document.getElementById('searchStartDate').value;
+    const endDate = document.getElementById('searchEndDate').value;
+
+    // Construire les params de recherche
+    const params = new URLSearchParams();
+    if (client) params.append('client', client);
+    if (date) params.append('date', date);
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    params.append('page', 1); // Reset to page 1 on search
+
+    currentSearchParams = { client, date, startDate, endDate };
+    currentPage = 1;
+
+    // Charger les factures avec filtres
+    await loadFactures(params.toString());
+    showToast('Recherche effectuée');
+  };
+
+  /**
+   * Réinitialiser la recherche
+   */
+  window.clearSearch = () => {
+    document.getElementById('searchClient').value = '';
+    document.getElementById('searchDate').value = '';
+    document.getElementById('searchStartDate').value = '';
+    document.getElementById('searchEndDate').value = '';
+    currentSearchParams = {};
+    currentPage = 1;
+    loadFactures(`page=1&limit=${limit}`);
+    showToast('Recherche réinitialisée');
+  };
+
+  /**
+   * Naviguer vers une page
+   * @param {number} page - Numéro de page
+   */
+  const goToPage = async (page) => {
+    const params = new URLSearchParams();
+    Object.entries(currentSearchParams).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+    params.append('page', page);
+    params.append('limit', limit);
+
+    currentPage = page;
+    await loadFactures(params.toString());
+  };
+
+  /**
+   * Rendre la pagination
+   * @param {number} totalPages - Nombre total de pages
+   */
+  const renderPagination = (totalPages) => {
+    const container = document.getElementById('paginationContainer');
+    container.innerHTML = '';
+
+    // Bouton Précédent
+    const prevBtn = document.createElement('button');
+    prevBtn.textContent = 'Précédent';
+    prevBtn.disabled = currentPage === 1;
+    prevBtn.onclick = () => goToPage(currentPage - 1);
+    container.appendChild(prevBtn);
+
+    // Pages
+    for (let i = 1; i <= totalPages; i++) {
+      const btn = document.createElement('button');
+      btn.textContent = i;
+      btn.className = i === currentPage ? 'active' : '';
+      btn.onclick = () => goToPage(i);
+      container.appendChild(btn);
+    }
+
+    // Bouton Suivant
+    const nextBtn = document.createElement('button');
+    nextBtn.textContent = 'Suivant';
+    nextBtn.disabled = currentPage === totalPages;
+    nextBtn.onclick = () => goToPage(currentPage + 1);
+    container.appendChild(nextBtn);
+  };
+
+  /**
+   * Afficher les détails d'une facture dans le modal
+   * @param {number} id - ID de la facture
+   */
+  const showDetails = async (id) => {
+    try {
+      const { data: facture } = await apiRequest(`/factures/${id}`);
+      const { data: produits } = await apiRequest(`/factures/${id}/produits`);
+      currentFactureDetails = { facture, produits };
+      const detailsContent = document.getElementById('detailsContent');
+      const totalProduits = produits.reduce((sum, p) => sum + (p.prix_unitaire * p.quantite), 0);
+      const totalTTC = totalProduits - facture.acompte;
+      detailsContent.innerHTML = `
+        <div class="space-y-6">
+          <!-- Section Informations Facture -->
+          <div class="invoice-section">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4">
+              Informations de la Facture
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div class="space-y-2">
+                <div><span class="font-medium text-gray-600">ID:</span> <span class="text-gray-900">${facture.id}</span></div>
+                <div><span class="font-medium text-gray-600">Client:</span> <span class="text-gray-900">${facture.nom_complet}</span></div>
+                <div><span class="font-medium text-gray-600">Date:</span> <span class="text-gray-900">${facture.date_facture || 'Non spécifiée'}</span></div>
+              </div>
+              <div class="space-y-2">
+                <div><span class="font-medium text-gray-600">Acompte:</span> <span class="text-gray-900">${facture.acompte.toFixed(2)} DT</span></div>
+                <div><span class="font-medium text-gray-600">Total HT:</span> <span class="text-gray-900">${totalProduits.toFixed(2)} DT</span></div>
+                <div><span class="font-medium text-gray-600">Total TTC:</span> <span class="text-gray-900 font-bold">${totalTTC.toFixed(2)} DT</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section Produits -->
+          <div class="invoice-section">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4">
+              Liste des Produits
+            </h4>
+            <table class="products-table">
+              <thead>
+                <tr>
+                  <th>Produit</th>
+                  <th>Prix Unitaire (DT)</th>
+                  <th>Quantité</th>
+                  <th>Sous-Total (DT)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${produits.map(p => `
+                  <tr>
+                    <td class="font-medium text-gray-900">${p.produit_name}</td>
+                    <td class="text-gray-700">${p.prix_unitaire.toFixed(2)}</td>
+                    <td class="text-gray-700">${p.quantite}</td>
+                    <td class="text-gray-900 font-medium">${(p.prix_unitaire * p.quantite).toFixed(2)}</td>
+                  </tr>
+                `).join('')}
+                <tr class="total-row">
+                  <td colspan="3" class="text-right font-semibold text-gray-800">TOTAL:</td>
+                  <td class="font-bold text-gray-900">${totalProduits.toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      document.getElementById('detailsModal').style.display = 'block';
+    } catch (error) {
+      console.error('Erreur chargement détails:', error);
+    }
+  };
+
+  /**
+   * Fermer le modal
+   */
+  window.closeModal = () => {
+    document.getElementById('detailsModal').style.display = 'none';
+  };
+
+  /**
+   * Charger et afficher les factures dans le tableau avec params optionnels
+   * @param {string} searchParams - Query string pour les filtres et pagination
+   */
+  const loadFactures = async (searchParams = '') => {
+    try {
+      const url = searchParams ? `/factures?${searchParams}` : '/factures';
+      const { data: factures, pagination } = await apiRequest(url);
+      const tbody = document.getElementById('factureTableBody');
+      tbody.innerHTML = '';
+      factures.forEach(facture => {
+        const row = document.createElement('tr');
+        row.className = 'cursor-pointer hover:bg-gray-50';
+        row.onclick = (e) => {
+          if (e.target.closest('button')) return; // Ignorer si clic sur un bouton
+          showDetails(facture.id);
+        };
+        row.innerHTML = `
+          <td class="p-3 border-b">${facture.id}</td>
+          <td class="p-3 border-b">${facture.nom_complet}</td>
+          <td class="p-3 border-b">${facture.date_facture || 'Non spécifiée'}</td>
+          <td class="p-3 border-b">${facture.acompte.toFixed(2)}</td>
+          <td class="p-3 border-b">${facture.total_a_payer.toFixed(2)}</td>
+          <td class="p-3 border-b text-center">
+            <button onclick="editFacture(${facture.id}); event.stopPropagation();" class="text-blue-500 hover:text-blue-700 mr-2"><i class="fas fa-edit"></i></button>
+            <button onclick="deleteFacture(${facture.id}); event.stopPropagation();" class="text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      // Mettre à jour la pagination
+      totalPages = pagination.totalPages;
+      renderPagination(totalPages);
+    } catch (error) {
+      console.error('Erreur chargement factures:', error);
+    }
+  };
+
+  /**
+   * Éditer une facture (charger dans le formulaire)
+   * @param {number} id - ID de la facture
+   */
+  window.editFacture = async (id) => {
+    try {
+      const { data: factureData } = await apiRequest(`/factures/${id}`);
+      editingFactureId = id;
+      document.getElementById('clientNom').value = factureData.nom_complet;
+      document.getElementById('acompte').value = factureData.acompte;
+
+      // Charger les produits (affichage et édition possibles)
+      const { data: produits } = await apiRequest(`/factures/${id}/produits`);
+      produitsList = produits.map(p => ({
+        produit_name: p.produit_name,
+        prix_unitaire: p.prix_unitaire,
+        quantite: p.quantite
+      }));
+
+      // Reconstruire le container avec les produits chargés (affichage des noms et valeurs)
+      rebuildProduitsContainer();
+
+      showToast('Facture chargée pour modification');
+    } catch (error) {
+      console.error('Erreur édition:', error);
+    }
+  };
+
+  /**
+   * Supprimer une facture
+   * @param {number} id - ID de la facture
+   */
+  window.deleteFacture = async (id) => {
+    if (!confirm('Confirmer la suppression de cette facture ?')) return;
+    try {
+      await apiRequest(`/factures/${id}`, { method: 'DELETE' });
+      showToast('Facture supprimée avec succès');
+      // Recharger la page actuelle
+      const params = new URLSearchParams();
+      Object.entries(currentSearchParams).forEach(([key, value]) => {
+        if (value) params.append(key, value);
+      });
+      params.append('page', currentPage);
+      params.append('limit', limit);
+      await loadFactures(params.toString());
+    } catch (error) {
+      console.error('Erreur suppression:', error);
+    }
+  };
+
+  // === ÉVÉNEMENTS ===
+  document.addEventListener('DOMContentLoaded', () => {
+    // Charger les factures au démarrage
+    loadFactures(`page=1&limit=${limit}`);
+
+    // Ajouter produit
+    document.getElementById('addProduit').addEventListener('click', addProduit);
+
+    // Soumission formulaire
+    document.getElementById('factureForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const validProduits = getValidProduits();
+      if (validProduits.length === 0) {
+        showToast('Ajoutez au moins un produit valide (nom, prix >= 0, quantité >= 1)', 'error');
+        return;
+      }
+
+      const nom_complet = document.getElementById('clientNom').value.trim();
+      const acompte = parseFloat(document.getElementById('acompte').value) || 0;
+      const totalHT = calculateTotal();
+      const total_a_payer = totalHT - acompte;
+
+      if (!nom_complet) {
+        showToast('Nom du client requis', 'error');
+        return;
+      }
+
+      if (totalHT <= 0) {
+        showToast('Le total HT doit être supérieur à 0', 'error');
+        return;
+      }
+
+      try {
+        let facture;
+        if (editingFactureId) {
+          // Mise à jour
+          const { data: updatedFacture } = await apiRequest(`/factures/${editingFactureId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ nom_complet, total_a_payer, acompte, date_facture: new Date().toISOString().split('T')[0] })
+          });
+          facture = updatedFacture;
+          // Supprimer anciens produits
+          const { data: oldProduits } = await apiRequest(`/factures/${editingFactureId}/produits`);
+          for (const p of oldProduits) {
+            await apiRequest(`/factures/produits/${p.id}`, { method: 'DELETE' });
+          }
+        } else {
+          // Création
+          const { data } = await apiRequest('/factures', {
+            method: 'POST',
+            body: JSON.stringify({ nom_complet, total_a_payer, acompte, date_facture: new Date().toISOString().split('T')[0] })
+          });
+          facture = data;
+        }
+
+        // Ajouter les produits valides
+        for (const produit of validProduits) {
+          await apiRequest(`/factures/${facture.id}/produits`, {
+            method: 'POST',
+            body: JSON.stringify(produit)
+          });
+        }
+
+        showToast(editingFactureId ? 'Facture mise à jour avec succès' : 'Facture créée avec succès');
+        // Reset formulaire
+        editingFactureId = null;
+        document.getElementById('factureForm').reset();
+        document.getElementById('produitsContainer').innerHTML = '';
+        produitsList = [];
+        // Recharger la page actuelle après création/modification
+        const params = new URLSearchParams();
+        Object.entries(currentSearchParams).forEach(([key, value]) => {
+          if (value) params.append(key, value);
+        });
+        params.append('page', currentPage);
+        params.append('limit', limit);
+        await loadFactures(params.toString());
+      } catch (error) {
+        console.error('Erreur soumission:', error);
+      }
+    });
+
+    // Fermer modal en cliquant dehors
+    window.onclick = (event) => {
+      const modal = document.getElementById('detailsModal');
+      if (event.target === modal) {
+        modal.style.display = 'none';
+      }
+    };
+  });
+</script>
+
+</body>
+</html>

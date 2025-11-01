@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS commandes (
   largeur REAL NOT NULL,
   nombre_etages INTEGER DEFAULT 1,
   prix REAL NOT NULL,
-  accompte REAL DEFAULT 0,
+  acompte REAL DEFAULT 0,
   description TEXT,
   date_livraison TEXT DEFAULT (datetime('now','localtime')),
   date_creation TEXT DEFAULT (datetime('now','localtime')),
@@ -98,6 +98,27 @@ CREATE TABLE IF NOT EXISTS vente_produits (
   FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
 );
 `);
+// 🔸 Création des tables si elles n'existent pas
+db.exec(`
+  CREATE TABLE IF NOT EXISTS factures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom_complet TEXT NOT NULL,
+    total_a_payer REAL NOT NULL,
+    acompte REAL DEFAULT 0,
+    date_facture TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS facture_produits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    facture_id INTEGER NOT NULL,
+    produit_name TEXT NOT NULL,
+    prix_unitaire REAL NOT NULL,
+    quantite INTEGER NOT NULL,
+    FOREIGN KEY (facture_id) REFERENCES factures(id) ON DELETE CASCADE
+  );
+`);
+
+console.log('Tables factures et facture_produits initialisées.');
 
 // === 👤 Création automatique de l’utilisateur admin "MOKA" ===
 const adminUsername = 'MOKA';

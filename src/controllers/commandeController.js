@@ -57,7 +57,7 @@ class CommandeController {
         largeur: Number(req.body.largeur),
         nombre_etages: Number(req.body.nombre_etages || 1),
         prix: Number(req.body.prix),
-        accompte: Number(req.body.accompte || 0),
+        acompte: Number(req.body.acompte || 0),
         date_livraison: new Date(req.body.date_livraison).toISOString(),
       };
 
@@ -85,7 +85,7 @@ class CommandeController {
       if (data.largeur !== undefined) data.largeur = Number(data.largeur);
       if (data.nombre_etages !== undefined) data.nombre_etages = Number(data.nombre_etages);
       if (data.prix !== undefined) data.prix = Number(data.prix);
-      if (data.accompte !== undefined) data.accompte = Number(data.accompte);
+      if (data.acompte !== undefined) data.acompte = Number(data.acompte);
       if (data.date_livraison !== undefined) data.date_livraison = new Date(data.date_livraison).toISOString();
 
       const commande = CommandeModel.update(id, data);

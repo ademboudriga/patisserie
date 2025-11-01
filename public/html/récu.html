@@ -43,7 +43,7 @@
       <p><strong>Dimensions :</strong> <span id="dimensions"></span></p>
       <p><strong>Étages :</strong> <span id="etages"></span></p>
       <p><strong>Prix Total :</strong> <span id="prix"></span> DT</p>
-      <p><strong>Accompte :</strong> <span id="accompte"></span> DT</p>
+      <p><strong>acompte :</strong> <span id="acompte"></span> DT</p>
       <p><strong>Date de Livraison :</strong> <span id="dateLivraison"></span></p>
       <p><strong>Description :</strong> <span id="description"></span></p>
     </div>
@@ -88,7 +88,7 @@
     document.getElementById('dimensions').textContent = `${params.get('longueur') || ''} x ${params.get('largeur') || ''} cm`;
     document.getElementById('etages').textContent = params.get('nombre_etages') || '';
     document.getElementById('prix').textContent = parseFloat(params.get('prix') || 0).toFixed(2);
-    document.getElementById('accompte').textContent = parseFloat(params.get('accompte') || 0).toFixed(2);
+    document.getElementById('acompte').textContent = parseFloat(params.get('acompte') || 0).toFixed(2);
     document.getElementById('dateLivraison').textContent = dateLivraisonFormatted;
     document.getElementById('description').textContent = params.get('description') || '';
   </script>

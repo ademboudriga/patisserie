@@ -5,6 +5,8 @@ const cors = require('cors');
 require('dotenv').config();
 require('./init-db'); // ✅ Initialise la base de données SQLite
 
+
+
 // ------------------------
 // ⚙️ Initialisation de l'application
 // ------------------------
@@ -41,6 +43,7 @@ const consommationRoutes = require('./routes/consommationRoutes');
 const venteProduitRoutes = require('./routes/venteProduitRoutes');
 const produitRoutes = require('./routes/produitRoutes');
 const commandeRoutes = require('./routes/commandeRoutes'); // ✅ Routes commandes
+const factureRoutes = require('./routes/FactureRoutes');
 
 
 app.use('/api/users', userRoutes);
@@ -49,7 +52,7 @@ app.use('/api/consommations', consommationRoutes);
 app.use('/api/produits', produitRoutes);
 app.use('/api/ventes', venteProduitRoutes);
 app.use('/api/commandes', commandeRoutes); // ✅ Routes commandes
-
+app.use('/api/factures', factureRoutes);
 
 app.use((req, res, next) => {
   console.log(`[DEBUG] ${req.method} ${req.url} - Body:`, req.body);
@@ -57,7 +60,7 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-  res.json({ message: 'Serveur Pâtisserie Sucrée opérationnel !' });
+  res.json({ message: 'Serveur Pâtisserie  opérationnel !' });
 });
 
 // ------------------------

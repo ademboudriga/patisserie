@@ -98,7 +98,7 @@ class CommandeModel {
       largeur,
       nombre_etages = 1,
       prix,
-      accompte = 0,
+      acompte = 0,
       description = null,
       date_livraison,
       statut = 'en attente'
@@ -114,7 +114,7 @@ class CommandeModel {
     try {
       const stmt = db.prepare(`
         INSERT INTO commandes 
-        (nom_client, prenom_client, telephone, longueur, largeur, nombre_etages, prix, accompte, description, date_livraison, statut, date_creation)
+        (nom_client, prenom_client, telephone, longueur, largeur, nombre_etages, prix, acompte, description, date_livraison, statut, date_creation)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
@@ -126,7 +126,7 @@ class CommandeModel {
         Number(largeur),
         Number(nombre_etages),
         Number(prix),
-        Number(accompte),
+        Number(acompte),
         description,
         date_livraison,
         statut,
@@ -152,7 +152,7 @@ class CommandeModel {
       largeur = commande.largeur,
       nombre_etages = commande.nombre_etages,
       prix = commande.prix,
-      accompte = commande.accompte,
+      acompte = commande.acompte,
       description = commande.description,
       date_livraison = commande.date_livraison,
       statut = commande.statut
@@ -164,7 +164,7 @@ class CommandeModel {
       const stmt = db.prepare(`
         UPDATE commandes
         SET nom_client = ?, prenom_client = ?, telephone = ?, longueur = ?, largeur = ?, 
-            nombre_etages = ?, prix = ?, accompte = ?, description = ?, date_livraison = ?, statut = ?
+            nombre_etages = ?, prix = ?, acompte = ?, description = ?, date_livraison = ?, statut = ?
         WHERE id = ?
       `);
 
@@ -176,7 +176,7 @@ class CommandeModel {
         Number(largeur),
         Number(nombre_etages),
         Number(prix),
-        Number(accompte),
+        Number(acompte),
         description,
         date_livraison,
         statut,
