@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Commandes - Pâtisserie </title>
+  <title>Commandes - Pâtisserie</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="flex h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-white">
 
@@ -19,10 +20,10 @@
         <a href="produit.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10"><i class="fas fa-birthday-cake"></i> Produits</a>
         <a href="vente.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10"><i class="fas fa-cash-register"></i> Ventes</a>
         <a href="commandes.html" class="flex items-center gap-3 p-3 rounded-lg bg-white/10"><i class="fas fa-receipt"></i> Commandes</a>
-            <!-- ✅ Nouveau lien : Factures -->
-    <a href="facture.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10 transition">
-      <i class="fas fa-file-invoice-dollar"></i> Factures
-    </a>
+        <!-- ✅ Nouveau lien : Factures -->
+        <a href="facture.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10 transition">
+          <i class="fas fa-file-invoice-dollar"></i> Factures
+        </a>
         <a href="modifierProfile.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10"><i class="fas fa-user-edit"></i> Modifier Profil</a>
         <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
       </nav>
@@ -53,7 +54,7 @@
               <th class="p-3 text-center">Dimensions</th>
               <th class="p-3 text-center">Étages</th>
               <th class="p-3 text-center">Prix</th>
-              <th class="p-3 text-center">acompte</th>
+              <th class="p-3 text-center">Acompte</th>
               <th class="p-3 text-center">Statut</th>
               <th class="p-3 text-center">Livraison</th>
               <th class="p-3 text-center">Créée le</th>
@@ -75,7 +76,7 @@
     </section>
   </main>
 
-  <!-- 🌸 Modal Commande -->
+  <!-- 🌸 Modal Commande (Édition/Ajout) -->
   <div id="modalCommande" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8 animate-fadeIn">
       <h2 id="modalTitle" class="text-2xl font-bold text-center text-gray-800 mb-6">➕ Ajouter une commande</h2>
@@ -96,7 +97,7 @@
 
         <div class="grid grid-cols-2 gap-3">
           <input type="number" name="prix" required min="0" step="0.5" placeholder="Prix (DT)" class="input-style" />
-          <input type="number" name="acompte" min="0" step="0.5" placeholder="acompte (DT)" class="input-style" />
+          <input type="number" name="acompte" min="0" step="0.5" placeholder="Acompte (DT)" class="input-style" />
         </div>
 
         <input type="date" name="date_livraison" required class="input-style" />
@@ -115,14 +116,39 @@
     </div>
   </div>
 
+  <!-- 👁️ Modal Affichage Détails Commande -->
+  <div id="modalViewCommande" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 animate-fadeIn max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-6">
+        <h2 id="viewModalTitle" class="text-2xl font-bold text-gray-800">📄 Détails de la Commande</h2>
+        <button id="closeViewModal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+      </div>
+      <div id="viewCommandeContent" class="space-y-4 text-gray-700">
+        <!-- Contenu dynamique ici -->
+      </div>
+      <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+        <button id="btnPrintReceipt" class="px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 shadow-md transition flex items-center gap-2">
+          <i class="fas fa-download"></i> Télécharger PDF
+        </button>
+        <button class="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition">Fermer</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    const { jsPDF } = window.jspdf;
     const API_URL = '/api/commandes';
     const tableBody = document.getElementById('commandeTableBody');
     const modal = document.getElementById('modalCommande');
+    const modalView = document.getElementById('modalViewCommande');
     const btnAddCommande = document.getElementById('btnAddCommande');
     const closeModal = document.getElementById('closeModal');
+    const closeViewModal = document.getElementById('closeViewModal');
     const form = document.getElementById('commandeForm');
     const modalTitle = document.getElementById('modalTitle');
+    const viewModalTitle = document.getElementById('viewModalTitle');
+    const viewCommandeContent = document.getElementById('viewCommandeContent');
+    const btnPrintReceipt = document.getElementById('btnPrintReceipt');
     const searchInput = document.getElementById('searchInput');
     const prevPage = document.getElementById('prevPage');
     const nextPage = document.getElementById('nextPage');
@@ -132,6 +158,7 @@
     let totalPages = 1;
     const limit = 10;
     let searchQuery = '';
+    let currentCommande = null; // Pour stocker la commande en cours d'affichage
 
     btnAddCommande.addEventListener('click', () => {
       form.reset();
@@ -142,7 +169,12 @@
     });
 
     closeModal.addEventListener('click', () => modal.classList.add('hidden'));
-    window.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+    closeViewModal.addEventListener('click', () => modalView.classList.add('hidden'));
+    document.querySelector('#modalViewCommande .flex.justify-end button:last-child').addEventListener('click', () => modalView.classList.add('hidden'));
+    window.addEventListener('click', e => { 
+      if (e.target === modal) modal.classList.add('hidden');
+      if (e.target === modalView) modalView.classList.add('hidden');
+    });
 
     searchInput.addEventListener('input', () => {
       searchQuery = searchInput.value;
@@ -164,10 +196,17 @@
       }
     });
 
+    // Bouton Télécharger PDF
+    btnPrintReceipt.addEventListener('click', () => {
+      if (!currentCommande) return alert('Aucune commande sélectionnée.');
+      generatePDF(currentCommande);
+    });
+
     async function fetchCommandes() {
       tableBody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-gray-500">Chargement...</td></tr>`;
       try {
         const res = await fetch(`${API_URL}?search=${encodeURIComponent(searchQuery)}&page=${currentPage}&limit=${limit}`);
+        if (!res.ok) throw new Error(`Erreur HTTP: ${res.status}`);
         const data = await res.json();
         const commandes = data.commandes || [];
         const totalItems = data.total || commandes.length;
@@ -180,7 +219,7 @@
         renderTable(commandes);
       } catch (err) {
         console.error(err);
-        tableBody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-red-500">Erreur de chargement</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-red-500">Erreur de chargement: ${err.message}</td></tr>`;
       }
     }
 
@@ -190,80 +229,269 @@
         return;
       }
       tableBody.innerHTML = commandes.map(c => `
-        <tr class="hover:bg-pink-50 border-b transition">
-          <td class="p-3 text-center">${c.nom_client} ${c.prenom_client}</td>
-          <td class="p-3 text-center">${c.telephone}</td>
-          <td class="p-3 text-center">${c.longueur}x${c.largeur} cm</td>
-          <td class="p-3 text-center">${c.nombre_etages}</td>
-          <td class="p-3 text-center font-semibold">${c.prix.toFixed(2)} DT</td>
-          <td class="p-3 text-center">${c.acompte.toFixed(2)} DT</td>
+        <tr class="hover:bg-pink-50 border-b transition cursor-pointer" onclick="viewCommande(${c.id})">
+          <td class="p-3 text-center">${c.nom_client || ''} ${c.prenom_client || ''}</td>
+          <td class="p-3 text-center">${c.telephone || ''}</td>
+          <td class="p-3 text-center">${(c.longueur || 0)}x${(c.largeur || 0)} cm</td>
+          <td class="p-3 text-center">${c.nombre_etages || 1}</td>
+          <td class="p-3 text-center font-semibold">${(c.prix || 0).toFixed(2)} DT</td>
+          <td class="p-3 text-center">${(c.acompte || 0).toFixed(2)} DT</td>
           <td class="p-3 text-center">
             <span class="px-2 py-1 rounded-full text-xs font-semibold ${
               c.statut === 'livrée' ? 'bg-blue-200 text-blue-800' : 'bg-yellow-200 text-yellow-800'
-            }">${c.statut}</span>
+            }">${c.statut || 'en attente'}</span>
           </td>
-          <td class="p-3 text-center">${new Date(c.date_livraison).toLocaleDateString()}</td>
-          <td class="p-3 text-center">${new Date(c.date_creation).toLocaleDateString()}</td>
+          <td class="p-3 text-center">${new Date(c.date_livraison || Date.now()).toLocaleDateString('fr-FR')}</td>
+          <td class="p-3 text-center">${new Date(c.date_creation || Date.now()).toLocaleDateString('fr-FR')}</td>
           <td class="p-3 text-center flex justify-center gap-2">
-            <button class="text-blue-500 hover:text-blue-700" onclick="editCommande(${c.id})"><i class="fas fa-edit"></i></button>
-            <button class="text-red-500 hover:text-red-700" onclick="deleteCommande(${c.id})"><i class="fas fa-trash"></i></button>
- 
-            <a href="/html/récu.html?nom_client=${encodeURIComponent(c.nom_client)}&prenom_client=${encodeURIComponent(c.prenom_client)}&telephone=${encodeURIComponent(c.telephone)}&longueur=${c.longueur}&largeur=${c.largeur}&nombre_etages=${c.nombre_etages}&prix=${c.prix}&acompte=${c.acompte}&date_livraison=${c.date_livraison}&description=${encodeURIComponent(c.description)}&statut=${encodeURIComponent(c.statut)}"" target="_blank" class="text-green-500 hover:text-green-700" title="Voir Reçu">
-              <i class="fas fa-receipt"></i>
-            </a>
-
+            <button class="text-green-500 hover:text-green-700" onclick="event.stopPropagation(); viewCommande(${c.id})" title="Voir détails"><i class="fas fa-eye"></i></button>
+            <button class="text-blue-500 hover:text-blue-700" onclick="event.stopPropagation(); editCommande(${c.id})" title="Modifier"><i class="fas fa-edit"></i></button>
+            <button class="text-red-500 hover:text-red-700" onclick="event.stopPropagation(); deleteCommande(${c.id})" title="Supprimer"><i class="fas fa-trash"></i></button>
           </td>
         </tr>
       `).join('');
     }
 
-    // 🔹 CRUD
+    // 👁️ Afficher détails complets d'une commande
+    window.viewCommande = async id => {
+      try {
+        const res = await fetch(`${API_URL}/${id}`);
+        if (!res.ok) throw new Error(`Commande ${id} introuvable`);
+        currentCommande = await res.json();
+
+        // Titre
+        viewModalTitle.textContent = `📄 Détails Commande #${currentCommande.id}`;
+
+        // Contenu détails
+        const solde = (currentCommande.prix || 0) - (currentCommande.acompte || 0);
+        viewCommandeContent.innerHTML = `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+             
+              <p><strong>Nom :</strong> ${currentCommande.nom_client || ''} ${currentCommande.prenom_client || ''}</p>
+              <p><strong>Téléphone :</strong> ${currentCommande.telephone || ''}</p>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-800 mb-2">Détails Produit</h3>
+              <p><strong>Dimensions :</strong> ${currentCommande.longueur || 0} x ${currentCommande.largeur || 0} cm</p>
+              <p><strong>Étages :</strong> ${currentCommande.nombre_etages || 1}</p>
+              <p><strong>Description :</strong> ${currentCommande.description || 'Aucune'}</p>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-800 mb-2">Finances</h3>
+              <p><strong>Prix Total :</strong> ${currentCommande.prix ? currentCommande.prix.toFixed(2) : '0'} DT</p>
+              <p><strong>Acompte :</strong> ${currentCommande.acompte ? currentCommande.acompte.toFixed(2) : '0'} DT</p>
+              <p><strong>Solde Restant :</strong> <span class="font-bold text-pink-600">${solde.toFixed(2)} DT</span></p>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-800 mb-2">Dates & Statut</h3>
+              <p><strong>Date Création :</strong> ${new Date(currentCommande.date_creation || Date.now()).toLocaleDateString('fr-FR')}</p>
+              <p><strong>Date Livraison :</strong> ${new Date(currentCommande.date_livraison || Date.now()).toLocaleDateString('fr-FR')}</p>
+              <p><strong>Statut :</strong> 
+                <span class="px-2 py-1 rounded-full text-xs font-semibold ${
+                  currentCommande.statut === 'livrée' ? 'bg-blue-200 text-blue-800' : 'bg-yellow-200 text-yellow-800'
+                }">${currentCommande.statut || 'en attente'}</span>
+              </p>
+            </div>
+          </div>
+        `;
+
+        modalView.classList.remove('hidden');
+        modalView.classList.add('flex');
+      } catch (err) {
+        console.error(err);
+        alert(`Erreur lors du chargement des détails: ${err.message}`);
+      }
+    };
+
+    // 🖨️ Générer et télécharger PDF Reçu
+    function generatePDF(commande) {
+      const solde = (commande.prix || 0) - (commande.acompte || 0);
+      const doc = new jsPDF();
+      const dateNow = new Date().toLocaleDateString('fr-FR');
+      let yPos = 20;
+
+      // Header - Coordonnées Pâtisserie
+      doc.setFontSize(28);
+      doc.setTextColor(0, 0, 0); // Black
+      doc.setFont(undefined, 'bold');
+      doc.text('MOKA', 105, yPos, { align: 'center' });
+      yPos += 15;
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'italic');
+      doc.text('Pâtisserie Artisanale', 105, yPos, { align: 'center' });
+      yPos += 10;
+      doc.setFont(undefined, 'normal');
+      doc.text('34 Avenue Habib Bougatfa', 105, yPos, { align: 'center' });
+      yPos += 6;
+      doc.text('Tél: 24 066 434', 105, yPos, { align: 'center' });
+      yPos += 6;
+      doc.text('Email: Bensbatis@gmail.com', 105, yPos, { align: 'center' });
+      yPos += 20;
+
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.text('Reçu de Commande', 105, yPos, { align: 'center' });
+      yPos += 12;
+      doc.setFontSize(10);
+      doc.text(`Date du reçu: ${dateNow}`, 105, yPos, { align: 'center' });
+      yPos += 20;
+
+      // Ligne de séparation
+      doc.setLineWidth(1);
+      doc.setDrawColor(0, 0, 0); // Black
+      doc.line(20, yPos, 190, yPos);
+      yPos += 12;
+
+      // Coordonnées Client
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(12);
+      doc.text('Coordonnées Client', 20, yPos);
+      yPos += 10;
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(11);
+      doc.text(`${commande.prenom_client || ''} ${commande.nom_client || ''}`, 20, yPos);
+      yPos += 7;
+      doc.text(`Téléphone: ${commande.telephone || 'N/A'}`, 20, yPos);
+      yPos += 12;
+
+      // Détails Produit
+      doc.setFont(undefined, 'bold');
+      doc.text('Détails du Produit', 20, yPos);
+      yPos += 10;
+      doc.setFont(undefined, 'normal');
+      doc.text(`Dimensions: ${commande.longueur || 0} x ${commande.largeur || 0} cm`, 20, yPos);
+      yPos += 7;
+      doc.text(`Nombre d'étages: ${commande.nombre_etages || 1}`, 20, yPos);
+      yPos += 7;
+      if (commande.description) {
+        const descLines = doc.splitTextToSize(`Description: ${commande.description}`, 170);
+        doc.text(descLines, 20, yPos);
+        yPos += (descLines.length * 7) + 5;
+      } else {
+        doc.text('Description: Aucune', 20, yPos);
+        yPos += 7;
+      }
+      doc.text(`Date de livraison: ${new Date(commande.date_livraison || Date.now()).toLocaleDateString('fr-FR')}`, 20, yPos);
+      yPos += 12;
+
+      // Finances - Section mise en évidence
+      doc.setFont(undefined, 'bold');
+      doc.text('Finances', 20, yPos);
+      yPos += 10;
+      doc.setFont(undefined, 'normal');
+      doc.text(`Prix Total: ${ (commande.prix || 0).toFixed(2) } DT`, 20, yPos);
+      yPos += 7;
+      doc.text(`Acompte: ${ (commande.acompte || 0).toFixed(2) } DT`, 20, yPos);
+      yPos += 7;
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(12);
+      doc.text(`Solde Restant: ${ solde.toFixed(2) } DT`, 20, yPos);
+      yPos += 15;
+      doc.setFontSize(10);
+
+
+      // Footer
+      doc.setLineWidth(0.5);
+      doc.setDrawColor(0, 0, 0); // Black
+      doc.line(20, yPos, 190, yPos);
+      yPos += 10;
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(14);
+      doc.text('Merci pour votre commande !', 105, yPos, { align: 'center' });
+      yPos += 8;
+      doc.setFont(undefined, 'italic');
+      doc.setFontSize(9);
+      doc.text('Pâtisserie MOKA - 34 Avenue Habib Bougatfa - Tél: 24 066 434', 105, yPos, { align: 'center' });
+
+      // Sauvegarder directement en PDF
+      const filename = `recu-commande-${dateNow.replace(/\//g, '-')}.pdf`;
+      doc.save(filename);
+    }
+
+    // 🔹 CRUD avec validation frontend
     form.addEventListener('submit', async e => {
       e.preventDefault();
       const formData = Object.fromEntries(new FormData(form));
-      formData.longueur = parseFloat(formData.longueur);
-      formData.largeur = parseFloat(formData.largeur);
-      formData.nombre_etages = parseInt(formData.nombre_etages);
-      formData.prix = parseFloat(formData.prix);
-      formData.acompte = parseFloat(formData.acompte);
+      
+      // Parsing et validation stricte
+      const longueur = parseFloat(formData.longueur);
+      const largeur = parseFloat(formData.largeur);
+      const nombre_etages = parseInt(formData.nombre_etages) || 1;
+      const prix = parseFloat(formData.prix);
+      const acompte = parseFloat(formData.acompte) || 0;
+
+      // Vérifications
+      if (isNaN(longueur) || longueur <= 0) return alert('Longueur invalide (doit être > 0 cm)');
+      if (isNaN(largeur) || largeur <= 0) return alert('Largeur invalide (doit être > 0 cm)');
+      if (isNaN(prix) || prix <= 0) return alert('Prix invalide (doit être > 0 DT)');
+      if (isNaN(acompte) || acompte < 0) return alert('Acompte invalide (doit être ≥ 0 DT)');
+      if (!formData.date_livraison) return alert('Date de livraison obligatoire');
+
+      const data = {
+        ...formData,
+        longueur,
+        largeur,
+        nombre_etages,
+        prix,
+        acompte
+      };
 
       const method = form.dataset.id ? 'PUT' : 'POST';
       const url = form.dataset.id ? `${API_URL}/${form.dataset.id}` : API_URL;
 
-      await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      modal.classList.add('hidden');
-      fetchCommandes();
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || `Erreur ${res.status}`);
+        }
+        modal.classList.add('hidden');
+        fetchCommandes();
+      } catch (err) {
+        console.error('Erreur soumission:', err);
+        alert(`Erreur: ${err.message}`);
+      }
     });
 
     window.editCommande = async id => {
-      const res = await fetch(`${API_URL}/${id}`);
-      const c = await res.json();
-      form.nom_client.value = c.nom_client
-      form.prenom_client.value = c.prenom_client;
-      form.telephone.value = c.telephone;
-      form.longueur.value = c.longueur;
-      form.largeur.value = c.largeur;
-      form.nombre_etages.value = c.nombre_etages;
-      form.prix.value = c.prix;
-      form.acompte.value = c.acompte;
-      form.date_livraison.value = c.date_livraison.split('T')[0]; // format YYYY-MM-DD
-      form.description.value = c.description;
-      form.statut.value = c.statut;
-      form.dataset.id = c.id;
-      modalTitle.textContent = '✏️ Modifier la commande';
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
+      try {
+        const res = await fetch(`${API_URL}/${id}`);
+        if (!res.ok) throw new Error(`Commande ${id} introuvable`);
+        const c = await res.json();
+        
+        // Population avec gardes
+        form.nom_client.value = c.nom_client || '';
+        form.prenom_client.value = c.prenom_client || '';
+        form.telephone.value = c.telephone || '';
+        form.longueur.value = c.longueur || '';
+        form.largeur.value = c.largeur || '';
+        form.nombre_etages.value = c.nombre_etages || 1;
+        form.prix.value = (c.prix || 0).toString();
+        form.acompte.value = (c.acompte || 0).toString();
+        form.date_livraison.value = (c.date_livraison || '').split('T')[0] || '';
+        form.description.value = c.description || '';
+        form.statut.value = c.statut || 'en attente';
+        
+        form.dataset.id = c.id;
+        modalTitle.textContent = '✏️ Modifier la commande';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      } catch (err) {
+        console.error(err);
+        alert(`Erreur lors du chargement: ${err.message}`);
+      }
     };
 
     window.deleteCommande = async id => {
       if (confirm('Voulez-vous vraiment supprimer cette commande ?')) {
         try {
-          await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+          const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error('Suppression échouée');
           fetchCommandes();
         } catch (err) {
           console.error(err);

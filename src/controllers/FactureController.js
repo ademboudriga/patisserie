@@ -1,12 +1,5 @@
 // 📁 src/controllers/FactureController.js
 const FactureModel = require('../models/FactureModel');
-
-/**
- * Contrôleur pour les factures
- * Gère la logique métier et les appels au modèle
- */
-
-// === GET toutes les factures avec filtres et pagination ===
 const getAllFactures = async (req, res) => {
   try {
     const { client, date, startDate, endDate, page = 1, limit = 10 } = req.query;
@@ -34,6 +27,26 @@ const getAllFactures = async (req, res) => {
   }
 };
 
+// === GET factures pour impression par client et période ===
+const getFacturesForPrint = async (req, res) => {
+  try {
+    const { client, startDate, endDate } = req.query;
+    const filters = { client, startDate, endDate };
+    const facturesWithProduits = FactureModel.getFacturesForPrint(filters);
+    res.status(200).json({
+      success: true,
+      data: facturesWithProduits,
+      message: 'Factures pour impression récupérées avec succès'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des factures pour impression',
+      error: error.message
+    });
+  }
+};
+
 // === GET une facture par ID ===
 const getFactureById = async (req, res) => {
   try {
@@ -45,10 +58,9 @@ const getFactureById = async (req, res) => {
         message: 'Facture non trouvée'
       });
     }
-    const produits = FactureModel.getProduitsByFactureId(id);
     res.status(200).json({
       success: true,
-      data: { ...facture, produits },
+      data: facture,
       message: 'Facture récupérée avec succès'
     });
   } catch (error) {
@@ -195,6 +207,7 @@ const deleteProduitFromFacture = async (req, res) => {
 // === Export des contrôleurs ===
 module.exports = {
   getAllFactures,
+  getFacturesForPrint,
   getFactureById,
   createFacture,
   updateFacture,

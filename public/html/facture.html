@@ -6,6 +6,8 @@
   <title>Dashboard - Gestion des Factures</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     body { background-color: #f9fafb; }
     .sidebar { background: linear-gradient(to bottom right, #ec4899, #f43f5e); }
@@ -31,10 +33,30 @@
     .pagination button:hover:not(:disabled) { background-color: #f3f4f6; }
     .pagination button:disabled { color: #9ca3af; cursor: not-allowed; }
     .pagination button.active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+    @media print {
+      .no-print { display: none !important; }
+      .invoice-print { page-break-inside: avoid; }
+    }
+    #company-header {
+      direction: rtl;
+      text-align: right;
+      font-family: 'Arial', sans-serif;
+      font-size: 6px;
+      line-height: 1.1;
+      width: 170px;
+      height: 80px;
+      padding: 5px;
+      background: white;
+      position: absolute;
+      top: -10000px;
+      left: -10000px;
+    }
+    #company-header div {
+      font-size: 5px !important;
+    }
   </style>
 </head>
 <body class="flex h-screen">
-
 <!-- SIDEBAR -->
 <aside class="sidebar w-64 p-6 text-white flex flex-col">
   <h2 class="text-2xl font-bold mb-8">🍰 Pâtisserie</h2>
@@ -49,40 +71,66 @@
     <a href="index.html" class="flex items-center gap-3 p-3 rounded-lg mb-2 hover:bg-white/10"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
   </nav>
 </aside>
-
 <!-- MAIN -->
 <main class="flex-1 p-8 overflow-auto">
   <h1 class="text-3xl font-bold text-gray-800 mb-6">Gestion des Factures</h1>
-
   <!-- FORMULAIRE FACTURE -->
   <section class="bg-white p-6 rounded-xl shadow mb-8">
     <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
       <i class="fas fa-plus-circle text-pink-500 mr-2"></i>
       Créer / Modifier une facture
     </h2>
-
     <form id="factureForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <div class="col-span-3">
         <input type="text" id="clientNom" placeholder="Nom complet du client" required class="border p-2 rounded-lg w-full" />
       </div>
-
+      <div class="col-span-3">
+        <input type="text" id="clientAdresse" placeholder="Adresse du client (optionnel)" class="border p-2 rounded-lg w-full" />
+      </div>
+      <div class="col-span-3">
+        <input type="tel" id="clientTelephone" placeholder="Numéro de téléphone (optionnel)" class="border p-2 rounded-lg w-full" />
+      </div>
+      <div class="col-span-3">
+        <input type="email" id="clientEmail" placeholder="Email du client (optionnel)" class="border p-2 rounded-lg w-full" />
+      </div>
       <div class="col-span-3">
         <input type="number" id="acompte" placeholder="Acompte (en DT)" min="0" step="0.01" class="border p-2 rounded-lg w-full" />
       </div>
-
       <!-- PRODUITS -->
       <div class="col-span-3">
         <h3 class="text-lg font-semibold mb-2">Produits</h3>
         <div id="produitsContainer" class="space-y-2"></div>
         <button type="button" id="addProduit" class="mt-3 bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg"><i class="fas fa-plus"></i> Ajouter un produit</button>
       </div>
-
       <div class="col-span-3 flex justify-end">
         <button type="submit" class="bg-pink-500 hover:bg-pink-600 text-white px-6 py-2 rounded-lg"><i class="fas fa-save mr-2"></i> Enregistrer</button>
       </div>
     </form>
   </section>
-
+  <!-- RECHERCHE ET IMPRESSION PAR PÉRIODE -->
+  <section class="bg-white p-6 rounded-xl shadow mb-8">
+    <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+      <i class="fas fa-print text-green-500 mr-2"></i>
+      Impression par Client et Période
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nom du client</label>
+        <input type="text" id="printClient" placeholder="Nom du client..." class="border p-2 rounded-lg w-full" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
+        <input type="date" id="printStartDate" class="border p-2 rounded-lg w-full" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
+        <input type="date" id="printEndDate" class="border p-2 rounded-lg w-full" />
+      </div>
+    </div>
+    <div class="flex gap-4 mt-4">
+      <button onclick="printByPeriod()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"><i class="fas fa-print mr-2"></i> Imprimer Rapport</button>
+    </div>
+  </section>
   <!-- RECHERCHE -->
   <section class="bg-white p-6 rounded-xl shadow mb-8">
     <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
@@ -112,14 +160,12 @@
       <button onclick="clearSearch()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"><i class="fas fa-refresh mr-2"></i> Réinitialiser</button>
     </div>
   </section>
-
   <!-- TABLEAU FACTURES -->
   <section class="bg-white p-6 rounded-xl shadow">
     <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
       <i class="fas fa-file-invoice text-blue-500 mr-2"></i>
       Liste des factures
     </h2>
-
     <div class="overflow-x-auto">
       <table class="w-full border-collapse text-left">
         <thead class="bg-gray-100">
@@ -135,12 +181,10 @@
         <tbody id="factureTableBody"></tbody>
       </table>
     </div>
-
     <!-- PAGINATION -->
     <div id="paginationContainer" class="pagination mt-6"></div>
   </section>
 </main>
-
 <!-- MODAL DÉTAILS FACTURE -->
 <div id="detailsModal" class="modal">
   <div class="modal-content">
@@ -150,13 +194,23 @@
     </div>
     <div class="modal-body">
       <div id="detailsContent"></div>
+      <div class="flex justify-end mt-4">
+        <button onclick="printInvoice(currentFactureDetails)" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"><i class="fas fa-print mr-2"></i> Imprimer</button>
+      </div>
     </div>
   </div>
 </div>
-
+<!-- Hidden div for company header -->
+<div id="company-header">
+  <div style="font-weight: bold; text-align: center; margin-bottom: 5px;">شركة الكرم</div>
+  <div style="text-align: center;">عدد 34 شارع الحبيب بوقطفة</div>
+  <div style="text-align: center;">باردو تونس</div>
+  <div style="text-align: center;">السجل التجاري 1351639V</div>
+  <div style="text-align: center;">Num téléphone 24 066 434</div>
+  <div style="text-align: center;">Email : bensbatis@gmail.com</div>
+</div>
 <!-- TOAST -->
 <div id="toast" class="toast"></div>
-
 <script>
   // === VARIABLES GLOBALES ===
   let editingFactureId = null;
@@ -166,10 +220,8 @@
   let currentPage = 1;
   let totalPages = 1;
   let limit = 10;
-
   // === FONCTIONS UTILITAIRES ===
   const API_BASE = '/api'; // Ajuster selon votre configuration (ex: http://localhost:3000/api)
-
   /**
    * Afficher un toast
    * @param {string} message - Message à afficher
@@ -183,7 +235,6 @@
       toast.classList.remove('show');
     }, 3000);
   };
-
   /**
    * Requête fetch avec gestion d'erreurs
    * @param {string} url - URL de l'API
@@ -211,7 +262,6 @@
       throw error;
     }
   };
-
   /**
    * Créer un div pour un produit à l'index donné
    * @param {number} index - Index dans produitsList
@@ -228,19 +278,16 @@
       <button type="button" class="text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
     `;
     container.appendChild(produitDiv);
-
     // Définir les valeurs initiales
     ['produit_name', 'prix_unitaire', 'quantite'].forEach(field => {
       const input = produitDiv.querySelector(`[data-field="${field}"]`);
       const defaultValue = field === 'quantite' ? 1 : (field === 'prix_unitaire' ? 0 : '');
       input.value = data[field] || defaultValue;
-
       // Écouteur d'événements pour mise à jour en temps réel (permet la modification)
       input.addEventListener('input', (e) => {
         data[field] = e.target.value;
       });
     });
-
     // Événement suppression
     produitDiv.querySelector('button').addEventListener('click', () => {
       produitsList.splice(index, 1);
@@ -248,7 +295,6 @@
       rebuildProduitsContainer();
     });
   };
-
   /**
    * Reconstruire le container des produits à partir de produitsList
    */
@@ -257,7 +303,6 @@
     container.innerHTML = '';
     produitsList.forEach((_, i) => createDivForIndex(i));
   };
-
   /**
    * Ajouter un produit vide
    */
@@ -270,7 +315,6 @@
     });
     createDivForIndex(index);
   };
-
   /**
    * Calculer le total des produits valides
    * @returns {number} - Total
@@ -285,7 +329,6 @@
         : total;
     }, 0);
   };
-
   /**
    * Obtenir les produits valides
    * @returns {Array} - Produits valides filtrés
@@ -298,7 +341,6 @@
       return name && !isNaN(prix) && prix >= 0 && !isNaN(qte) && qte >= 1;
     });
   };
-
   /**
    * Effectuer une recherche
    */
@@ -307,7 +349,6 @@
     const date = document.getElementById('searchDate').value;
     const startDate = document.getElementById('searchStartDate').value;
     const endDate = document.getElementById('searchEndDate').value;
-
     // Construire les params de recherche
     const params = new URLSearchParams();
     if (client) params.append('client', client);
@@ -315,15 +356,12 @@
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     params.append('page', 1); // Reset to page 1 on search
-
     currentSearchParams = { client, date, startDate, endDate };
     currentPage = 1;
-
     // Charger les factures avec filtres
     await loadFactures(params.toString());
     showToast('Recherche effectuée');
   };
-
   /**
    * Réinitialiser la recherche
    */
@@ -337,7 +375,6 @@
     loadFactures(`page=1&limit=${limit}`);
     showToast('Recherche réinitialisée');
   };
-
   /**
    * Naviguer vers une page
    * @param {number} page - Numéro de page
@@ -349,11 +386,9 @@
     });
     params.append('page', page);
     params.append('limit', limit);
-
     currentPage = page;
     await loadFactures(params.toString());
   };
-
   /**
    * Rendre la pagination
    * @param {number} totalPages - Nombre total de pages
@@ -361,14 +396,12 @@
   const renderPagination = (totalPages) => {
     const container = document.getElementById('paginationContainer');
     container.innerHTML = '';
-
     // Bouton Précédent
     const prevBtn = document.createElement('button');
     prevBtn.textContent = 'Précédent';
     prevBtn.disabled = currentPage === 1;
     prevBtn.onclick = () => goToPage(currentPage - 1);
     container.appendChild(prevBtn);
-
     // Pages
     for (let i = 1; i <= totalPages; i++) {
       const btn = document.createElement('button');
@@ -377,7 +410,6 @@
       btn.onclick = () => goToPage(i);
       container.appendChild(btn);
     }
-
     // Bouton Suivant
     const nextBtn = document.createElement('button');
     nextBtn.textContent = 'Suivant';
@@ -385,7 +417,6 @@
     nextBtn.onclick = () => goToPage(currentPage + 1);
     container.appendChild(nextBtn);
   };
-
   /**
    * Afficher les détails d'une facture dans le modal
    * @param {number} id - ID de la facture
@@ -409,6 +440,9 @@
               <div class="space-y-2">
                 <div><span class="font-medium text-gray-600">ID:</span> <span class="text-gray-900">${facture.id}</span></div>
                 <div><span class="font-medium text-gray-600">Client:</span> <span class="text-gray-900">${facture.nom_complet}</span></div>
+                <div><span class="font-medium text-gray-600">Adresse:</span> <span class="text-gray-900">${facture.adresse || 'Non spécifiée'}</span></div>
+                <div><span class="font-medium text-gray-600">Téléphone:</span> <span class="text-gray-900">${facture.telephone || 'Non spécifié'}</span></div>
+                <div><span class="font-medium text-gray-600">Email:</span> <span class="text-gray-900">${facture.email || 'Non spécifié'}</span></div>
                 <div><span class="font-medium text-gray-600">Date:</span> <span class="text-gray-900">${facture.date_facture || 'Non spécifiée'}</span></div>
               </div>
               <div class="space-y-2">
@@ -418,7 +452,6 @@
               </div>
             </div>
           </div>
-
           <!-- Section Produits -->
           <div class="invoice-section">
             <h4 class="text-lg font-semibold text-gray-800 mb-4">
@@ -456,14 +489,12 @@
       console.error('Erreur chargement détails:', error);
     }
   };
-
   /**
    * Fermer le modal
    */
   window.closeModal = () => {
     document.getElementById('detailsModal').style.display = 'none';
   };
-
   /**
    * Charger et afficher les factures dans le tableau avec params optionnels
    * @param {string} searchParams - Query string pour les filtres et pagination
@@ -494,7 +525,6 @@
         `;
         tbody.appendChild(row);
       });
-
       // Mettre à jour la pagination
       totalPages = pagination.totalPages;
       renderPagination(totalPages);
@@ -502,7 +532,6 @@
       console.error('Erreur chargement factures:', error);
     }
   };
-
   /**
    * Éditer une facture (charger dans le formulaire)
    * @param {number} id - ID de la facture
@@ -512,8 +541,10 @@
       const { data: factureData } = await apiRequest(`/factures/${id}`);
       editingFactureId = id;
       document.getElementById('clientNom').value = factureData.nom_complet;
+      document.getElementById('clientAdresse').value = factureData.adresse || '';
+      document.getElementById('clientTelephone').value = factureData.telephone || '';
+      document.getElementById('clientEmail').value = factureData.email || '';
       document.getElementById('acompte').value = factureData.acompte;
-
       // Charger les produits (affichage et édition possibles)
       const { data: produits } = await apiRequest(`/factures/${id}/produits`);
       produitsList = produits.map(p => ({
@@ -521,16 +552,13 @@
         prix_unitaire: p.prix_unitaire,
         quantite: p.quantite
       }));
-
       // Reconstruire le container avec les produits chargés (affichage des noms et valeurs)
       rebuildProduitsContainer();
-
       showToast('Facture chargée pour modification');
     } catch (error) {
       console.error('Erreur édition:', error);
     }
   };
-
   /**
    * Supprimer une facture
    * @param {number} id - ID de la facture
@@ -552,47 +580,291 @@
       console.error('Erreur suppression:', error);
     }
   };
-
+  /**
+   * Dessiner les en-têtes du tableau avec soulignement
+   * @param {Object} doc - Instance jsPDF
+   * @param {number} y - Position Y
+   * @returns {number} Nouvelle position Y
+   */
+  const drawTableHeaders = (doc, y) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text('Désignation', 20, y);
+    doc.text('Qté', 100, y);
+    doc.text('Prix U.', 130, y);
+    doc.text('Total', 160, y);
+    doc.line(19, y + 1, 191, y + 1); // Ligne sous les en-têtes
+    doc.setFont("helvetica", "normal");
+    return y + 8;
+  };
+  /**
+   * Générer et télécharger la facture PDF
+   * @param {Object} invoiceData - Données de la facture
+   * @param {boolean} isBatch - Si c'est un rapport par période
+   */
+  const generatePDF = async (invoiceData, isBatch = false) => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    // Ajouter le titre FACTURE
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text('FACTURE', 105, 20, { align: 'center' });
+    // Rendre le header de la compagnie en image avec html2canvas pour supporter l'arabe RTL
+    const companyHeader = document.getElementById('company-header');
+    try {
+      const canvas = await html2canvas(companyHeader, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: 'white'
+      });
+      const imgData = canvas.toDataURL('image/png');
+      doc.addImage(imgData, 'PNG', 20, 25, 170, 60); // Ajuster la taille et position
+    } catch (error) {
+      console.error('Erreur lors du rendu du header:', error);
+      // Fallback: ajouter texte simple si html2canvas échoue
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.text('شركة الكرم', 105, 35, { align: 'center' });
+      // etc., mais garbled
+    }
+    let y = 95; // Position après le header image
+    if (isBatch) {
+      // Rapport par période : affichage avec produits par facture
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Rapport Factures - Client: ${invoiceData.client || 'Tous'}`, 105, y, { align: 'center' });
+      y += 8;
+      doc.text(`Période: ${invoiceData.startDate} au ${invoiceData.endDate}`, 105, y, { align: 'center' });
+      y += 15;
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.text('Détails des Factures:', 20, y);
+      y += 6;
+      doc.line(19, y - 1, 191, y - 1);
+      y += 5;
+      // Tableau : ID, Date, Produits
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text('ID', 20, y);
+      doc.text('Date', 40, y);
+      doc.text('Produits', 70, y);
+      doc.line(19, y + 1, 191, y + 1);
+      doc.setFont("helvetica", "normal");
+      y += 8;
+      invoiceData.factures.forEach(f => {
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+          // Redessiner en-têtes sur nouvelle page
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          doc.text('ID', 20, y);
+          doc.text('Date', 40, y);
+          doc.text('Produits', 70, y);
+          doc.line(19, y + 1, 191, y + 1);
+          doc.setFont("helvetica", "normal");
+          y += 8;
+        }
+        const dateStr = new Date(f.date_facture).toLocaleDateString('fr-FR');
+        const productsStr = f.produits.map(p => `${p.produit_name} (${p.quantite}x${p.prix_unitaire.toFixed(2)}DT)`).join(', ');
+        doc.setFontSize(8); // Taille de police réduite pour les produits
+        const splitText = doc.splitTextToSize(productsStr, 120);
+        doc.text(f.id.toString(), 20, y);
+        doc.text(dateStr, 40, y);
+        splitText.forEach((line, i) => {
+          doc.text(line, 70, y + (i * 3)); // Espacement de ligne réduit à 3
+        });
+        const linesHeight = splitText.length * 3;
+        doc.line(19, y + linesHeight + 1, 191, y + linesHeight + 1); // Ligne ajustée
+        y += linesHeight + 5; // Espacement après ligne réduit à 5
+        doc.setFontSize(10); // Remettre la taille normale
+      });
+      y += 10;
+      // Totaux globaux
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(`TOTAL HT: ${invoiceData.totalHT.toFixed(2)} DT`, 20, y);
+      y += 6;
+      doc.text(`Total Acomptes: -${invoiceData.totalAcompte.toFixed(2)} DT`, 20, y);
+      y += 6;
+      doc.text(`GRAND TOTAL TTC: ${invoiceData.totalTTC.toFixed(2)} DT`, 20, y);
+      doc.setFont("helvetica", "normal");
+    } else {
+      // Facture individuelle - Amélioration du design pour ressembler à l'image fournie
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Facture N° ${invoiceData.id}`, 20, y);
+      doc.setFontSize(12);
+      doc.text(`Date: ${new Date(invoiceData.date_facture).toLocaleDateString('fr-FR')}`, 140, y);
+      y += 12;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text('Destinataire / Client:', 20, y);
+      y += 6;
+      doc.text(invoiceData.nom_complet, 20, y);
+      if (invoiceData.adresse) { y += 6; doc.text(invoiceData.adresse, 20, y); y += 6; }
+      if (invoiceData.telephone) { doc.text(invoiceData.telephone, 20, y); y += 6; }
+      if (invoiceData.email) { doc.text(invoiceData.email, 20, y); y += 6; }
+      y += 9;
+      // Tableau produits avec lignes et gras pour en-têtes
+      y = drawTableHeaders(doc, y);
+      invoiceData.produits.forEach((p, index) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+          y = drawTableHeaders(doc, y); // Redessiner en-têtes sur nouvelle page
+        }
+        doc.setFontSize(10);
+        doc.text(p.produit_name.substring(0, 35), 20, y); // Plus large pour nom
+        doc.text(p.quantite.toString(), 100, y);
+        doc.text(p.prix_unitaire.toFixed(2), 130, y);
+        doc.text((p.prix_unitaire * p.quantite).toFixed(2), 160, y);
+        doc.line(19, y + 2, 191, y + 2); // Ligne sous la ligne de produit
+        y += 7;
+      });
+      y += 5;
+      doc.line(19, y - 1, 191, y - 1); // Ligne avant totaux
+      y += 5;
+      // Totaux alignés à droite
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(`TOTAL HT: ${invoiceData.totalHT.toFixed(2)} DT`, 130, y);
+      y += 7;
+      doc.text(`Acompte: -${invoiceData.acompte.toFixed(2)} DT`, 130, y);
+      y += 7;
+      doc.setFontSize(12);
+      doc.text(`TOTAL TTC: ${invoiceData.totalTTC.toFixed(2)} DT`, 130, y);
+      doc.setFont("helvetica", "normal");
+    }
+    // Footer commun
+    let footerY = Math.max(y + 25, 280);
+    if (footerY > 290) {
+      doc.addPage();
+      footerY = 20;
+    }
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.line(19, footerY - 5, 191, footerY - 5); // Ligne avant footer
+    footerY += 5;
+ 
+    doc.text('Merci pour votre confiance !', 105, footerY, { align: 'center' });
+    doc.save(`facture_${invoiceData.id || 'rapport'}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+  /**
+   * Imprimer une facture individuelle
+   * @param {Object} invoiceDetails - Détails de la facture (facture et produits)
+   */
+  window.printInvoice = async (invoiceDetails) => {
+    const totalHT = invoiceDetails.produits.reduce((sum, p) => sum + (p.prix_unitaire * p.quantite), 0);
+    const acompte = invoiceDetails.facture.acompte;
+    const totalTTC = totalHT - acompte;
+    const dataForPDF = {
+      id: invoiceDetails.facture.id,
+      date_facture: invoiceDetails.facture.date_facture,
+      nom_complet: invoiceDetails.facture.nom_complet,
+      adresse: invoiceDetails.facture.adresse,
+      telephone: invoiceDetails.facture.telephone,
+      email: invoiceDetails.facture.email,
+      acompte,
+      totalHT,
+      totalTTC,
+      produits: invoiceDetails.produits
+    };
+    await generatePDF(dataForPDF);
+  };
+  /**
+   * Imprimer rapport par client et période
+   */
+  window.printByPeriod = async () => {
+    const client = document.getElementById('printClient').value.trim();
+    const startDate = document.getElementById('printStartDate').value;
+    const endDate = document.getElementById('printEndDate').value;
+    if (!startDate || !endDate) {
+      showToast('Veuillez sélectionner une période', 'error');
+      return;
+    }
+    try {
+      const params = new URLSearchParams();
+      if (client) params.append('client', client);
+      params.append('startDate', startDate);
+      params.append('endDate', endDate);
+      params.append('limit', 1000); // Récupérer toutes les factures pour l'impression
+      const { data: factures } = await apiRequest(`/factures?${params.toString()}`);
+      if (factures.length === 0) {
+        showToast('Aucune facture trouvée pour cette période', 'error');
+        return;
+      }
+      // Charger les produits pour chaque facture
+      for (const f of factures) {
+        try {
+          const { data: prods } = await apiRequest(`/factures/${f.id}/produits`);
+          f.produits = prods;
+        } catch (e) {
+          f.produits = [];
+          console.error(`Erreur chargement produits pour facture ${f.id}:`, e);
+        }
+      }
+      // Calculer total pour le rapport
+      const totalHT = factures.reduce((sum, f) => sum + (f.total_a_payer + f.acompte), 0);
+      const totalAcompte = factures.reduce((sum, f) => sum + f.acompte, 0);
+      const totalTTC = totalHT - totalAcompte;
+      const dataForPDF = {
+        client: client || 'Tous',
+        startDate,
+        endDate,
+        factures,
+        totalHT,
+        totalAcompte,
+        totalTTC
+      };
+      await generatePDF(dataForPDF, true);
+      showToast('Rapport avec détails produits généré et téléchargé');
+    } catch (error) {
+      console.error('Erreur impression rapport:', error);
+      showToast('Erreur lors de la génération du rapport', 'error');
+    }
+  };
   // === ÉVÉNEMENTS ===
   document.addEventListener('DOMContentLoaded', () => {
     // Charger les factures au démarrage
     loadFactures(`page=1&limit=${limit}`);
-
     // Ajouter produit
     document.getElementById('addProduit').addEventListener('click', addProduit);
-
     // Soumission formulaire
     document.getElementById('factureForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-
       const validProduits = getValidProduits();
       if (validProduits.length === 0) {
         showToast('Ajoutez au moins un produit valide (nom, prix >= 0, quantité >= 1)', 'error');
         return;
       }
-
       const nom_complet = document.getElementById('clientNom').value.trim();
+      const adresse = document.getElementById('clientAdresse').value.trim() || null;
+      const telephone = document.getElementById('clientTelephone').value.trim() || null;
+      const email = document.getElementById('clientEmail').value.trim() || null;
       const acompte = parseFloat(document.getElementById('acompte').value) || 0;
       const totalHT = calculateTotal();
       const total_a_payer = totalHT - acompte;
-
       if (!nom_complet) {
         showToast('Nom du client requis', 'error');
         return;
       }
-
       if (totalHT <= 0) {
         showToast('Le total HT doit être supérieur à 0', 'error');
         return;
       }
-
       try {
         let facture;
         if (editingFactureId) {
           // Mise à jour
           const { data: updatedFacture } = await apiRequest(`/factures/${editingFactureId}`, {
             method: 'PUT',
-            body: JSON.stringify({ nom_complet, total_a_payer, acompte, date_facture: new Date().toISOString().split('T')[0] })
+            body: JSON.stringify({ nom_complet, total_a_payer, acompte, date_facture: new Date().toISOString().split('T')[0], adresse, telephone, email })
           });
           facture = updatedFacture;
           // Supprimer anciens produits
@@ -604,11 +876,10 @@
           // Création
           const { data } = await apiRequest('/factures', {
             method: 'POST',
-            body: JSON.stringify({ nom_complet, total_a_payer, acompte, date_facture: new Date().toISOString().split('T')[0] })
+            body: JSON.stringify({ nom_complet, total_a_payer, acompte, date_facture: new Date().toISOString().split('T')[0], adresse, telephone, email })
           });
           facture = data;
         }
-
         // Ajouter les produits valides
         for (const produit of validProduits) {
           await apiRequest(`/factures/${facture.id}/produits`, {
@@ -616,7 +887,6 @@
             body: JSON.stringify(produit)
           });
         }
-
         showToast(editingFactureId ? 'Facture mise à jour avec succès' : 'Facture créée avec succès');
         // Reset formulaire
         editingFactureId = null;
@@ -635,7 +905,6 @@
         console.error('Erreur soumission:', error);
       }
     });
-
     // Fermer modal en cliquant dehors
     window.onclick = (event) => {
       const modal = document.getElementById('detailsModal');
@@ -645,6 +914,5 @@
     };
   });
 </script>
-
 </body>
 </html>

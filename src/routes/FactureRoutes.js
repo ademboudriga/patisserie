@@ -6,8 +6,11 @@ const router = express.Router();
 
 // === Routes pour les factures ===
 
-// GET /api/factures - Récupérer toutes les factures avec filtres (query params: client, date, startDate, endDate)
+// GET /api/factures - Récupérer toutes les factures avec filtres et pagination
 router.get('/', FactureController.getAllFactures);
+
+// GET /api/factures/print - Récupérer les factures pour impression par client et période
+router.get('/print', FactureController.getFacturesForPrint);
 
 // GET /api/factures/:id - Récupérer une facture par ID (avec ses produits)
 router.get('/:id', FactureController.getFactureById);

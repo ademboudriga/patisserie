@@ -100,14 +100,16 @@ CREATE TABLE IF NOT EXISTS vente_produits (
 `);
 // 🔸 Création des tables si elles n'existent pas
 db.exec(`
-  CREATE TABLE IF NOT EXISTS factures (
+CREATE TABLE IF NOT EXISTS factures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nom_complet TEXT NOT NULL,
+    adresse TEXT DEFAULT NULL,
+    telephone TEXT DEFAULT NULL,
+    email TEXT DEFAULT NULL,
     total_a_payer REAL NOT NULL,
     acompte REAL DEFAULT 0,
     date_facture TEXT
   );
-
   CREATE TABLE IF NOT EXISTS facture_produits (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     facture_id INTEGER NOT NULL,
@@ -119,6 +121,26 @@ db.exec(`
 `);
 
 console.log('Tables factures et facture_produits initialisées.');
+
+
+
+try {
+  db.exec('ALTER TABLE factures ADD COLUMN adresse TEXT DEFAULT NULL');
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec('ALTER TABLE factures ADD COLUMN telephone TEXT DEFAULT NULL');
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec('ALTER TABLE factures ADD COLUMN email TEXT DEFAULT NULL');
+} catch (e) {
+  // Column already exists
+}
 
 // === 👤 Création automatique de l’utilisateur admin "MOKA" ===
 const adminUsername = 'MOKA';
@@ -134,5 +156,14 @@ if (!admin) {
   console.log(`ℹ️ Utilisateur admin "${adminUsername}" déjà existant`);
 }
 
-// === ✅ Export de la base de données ===
+// 🔧 Migration : Ajouter colonne 'acompte' si elle n'existe pas
+try {
+  db.exec('ALTER TABLE commandes ADD COLUMN acompte REAL DEFAULT 0');
+  console.log('✅ Colonne "acompte" ajoutée à la table commandes.');
+} catch (e) {
+  // Colonne déjà existante ou erreur ignorable
+  if (!e.message.includes('duplicate column name')) {
+    console.error('⚠️ Erreur lors de la migration "acompte" :', e.message);
+  }
+}
 module.exports = db;

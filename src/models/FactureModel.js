@@ -5,17 +5,17 @@ const db = require('../config/db');
 
 /**
  * Créer une nouvelle facture
- * @param {Object} factureData - Données de la facture { nom_complet, total_a_payer, acompte, date_facture }
+ * @param {Object} factureData - Données de la facture { nom_complet, total_a_payer, acompte = 0, date_facture, adresse, telephone, email }
  * @returns {Object} - La facture créée avec son ID
  */
 const createFacture = (factureData) => {
-  const { nom_complet, total_a_payer, acompte = 0, date_facture } = factureData;
+  const { nom_complet, total_a_payer, acompte = 0, date_facture, adresse, telephone, email } = factureData;
   const stmt = db.prepare(`
-    INSERT INTO factures (nom_complet, total_a_payer, acompte, date_facture)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO factures (nom_complet, total_a_payer, acompte, date_facture, adresse, telephone, email)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
-  const result = stmt.run(nom_complet, total_a_payer, acompte, date_facture || new Date().toISOString().split('T')[0]);
-  return { id: result.lastInsertRowid, ...factureData };
+  const result = stmt.run(nom_complet, total_a_payer, acompte, date_facture || new Date().toISOString().split('T')[0], adresse || null, telephone || null, email || null);
+  return { id: result.lastInsertRowid, ...factureData, produits: [] };
 };
 
 /**
@@ -66,12 +66,72 @@ const getAllFactures = (filters = {}) => {
 };
 
 /**
- * Récupérer une facture par ID
+ * Récupérer les factures pour impression par client et période
+ * @param {Object} filters - { client, startDate, endDate }
+ * @returns {Array} - Liste des factures avec leurs produits groupés
+ */
+const getFacturesForPrint = (filters = {}) => {
+  let sql = `
+    SELECT f.*, fp.*
+    FROM factures f
+    LEFT JOIN facture_produits fp ON f.id = fp.facture_id
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (filters.client) {
+    sql += ' AND f.nom_complet LIKE ?';
+    params.push(`%${filters.client}%`);
+  }
+
+  if (filters.startDate || filters.endDate) {
+    sql += ' AND f.date_facture BETWEEN ? AND ?';
+    params.push(filters.startDate || '1900-01-01', filters.endDate || new Date().toISOString().split('T')[0]);
+  }
+
+  sql += ' ORDER BY f.date_facture DESC, fp.id';
+
+  const results = db.prepare(sql).all(params);
+
+  // Grouper par facture
+  const grouped = {};
+  results.forEach(row => {
+    if (row.id && !grouped[row.id]) {
+      grouped[row.id] = {
+        id: row.id,
+        nom_complet: row.nom_complet,
+        adresse: row.adresse,
+        telephone: row.telephone,
+        email: row.email,
+        date_facture: row.date_facture,
+        acompte: row.acompte,
+        total_a_payer: row.total_a_payer,
+        produits: []
+      };
+    }
+    if (row.produit_name) { // Si c'est une ligne de produit
+      grouped[row.id].produits.push({
+        produit_name: row.produit_name,
+        prix_unitaire: row.prix_unitaire,
+        quantite: row.quantite,
+        sous_total: (row.prix_unitaire * row.quantite).toFixed(2)
+      });
+    }
+  });
+
+  return Object.values(grouped);
+};
+
+/**
+ * Récupérer une facture par ID avec ses produits
  * @param {number} id - ID de la facture
- * @returns {Object|null} - La facture ou null si non trouvée
+ * @returns {Object} - Facture avec produits
  */
 const getFactureById = (id) => {
-  return db.prepare('SELECT * FROM factures WHERE id = ?').get(id);
+  const facture = db.prepare('SELECT * FROM factures WHERE id = ?').get(id);
+  if (!facture) return null;
+  const produits = db.prepare('SELECT * FROM facture_produits WHERE facture_id = ?').all(id);
+  return { ...facture, produits };
 };
 
 /**
@@ -81,13 +141,13 @@ const getFactureById = (id) => {
  * @returns {Object} - La facture mise à jour
  */
 const updateFacture = (id, factureData) => {
-  const { nom_complet, total_a_payer, acompte, date_facture } = factureData;
+  const { nom_complet, total_a_payer, acompte, date_facture, adresse, telephone, email } = factureData;
   const stmt = db.prepare(`
     UPDATE factures
-    SET nom_complet = ?, total_a_payer = ?, acompte = ?, date_facture = ?
+    SET nom_complet = ?, total_a_payer = ?, acompte = ?, date_facture = ?, adresse = ?, telephone = ?, email = ?
     WHERE id = ?
   `);
-  stmt.run(nom_complet, total_a_payer, acompte, date_facture, id);
+  stmt.run(nom_complet, total_a_payer, acompte, date_facture, adresse || null, telephone || null, email || null, id);
   return getFactureById(id);
 };
 
@@ -114,7 +174,6 @@ const addProduitToFacture = (factureId, produitData) => {
     VALUES (?, ?, ?, ?)
   `);
   const result = stmt.run(factureId, produit_name, prix_unitaire, quantite);
-  // Recalculer le total de la facture si nécessaire (optionnel, à implémenter)
   return { id: result.lastInsertRowid, ...produitData };
 };
 
@@ -141,6 +200,7 @@ const deleteProduitFromFacture = (produitId) => {
 module.exports = {
   createFacture,
   getAllFactures,
+  getFacturesForPrint,
   getFactureById,
   updateFacture,
   deleteFacture,
