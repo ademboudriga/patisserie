@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS matieres_premieres (
   fournisseur_nom TEXT DEFAULT NULL,
   fournisseur_prenom TEXT DEFAULT NULL,
   fournisseur_email TEXT DEFAULT NULL,
-  fournisseur_telephone TEXT DEFAULT NULL
+  fournisseur_telephone TEXT DEFAULT NULL,
+  unite TEXT DEFAULT 'kg'
 );
 `);
 
@@ -86,7 +87,7 @@ CREATE TABLE IF NOT EXISTS consommation (
 );
 `);
 
-// --- Table ventes de produits ---
+// --- Table ventes ---
 db.exec(`
 CREATE TABLE IF NOT EXISTS vente_produits (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,48 +99,52 @@ CREATE TABLE IF NOT EXISTS vente_produits (
   FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
 );
 `);
-// 🔸 Création des tables si elles n'existent pas
+
+// --- Factures ---
 db.exec(`
 CREATE TABLE IF NOT EXISTS factures (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nom_complet TEXT NOT NULL,
-    adresse TEXT DEFAULT NULL,
-    telephone TEXT DEFAULT NULL,
-    email TEXT DEFAULT NULL,
-    total_a_payer REAL NOT NULL,
-    acompte REAL DEFAULT 0,
-    date_facture TEXT
-  );
-  CREATE TABLE IF NOT EXISTS facture_produits (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    facture_id INTEGER NOT NULL,
-    produit_name TEXT NOT NULL,
-    prix_unitaire REAL NOT NULL,
-    quantite INTEGER NOT NULL,
-    FOREIGN KEY (facture_id) REFERENCES factures(id) ON DELETE CASCADE
-  );
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nom_complet TEXT NOT NULL,
+  adresse TEXT DEFAULT NULL,
+  telephone TEXT DEFAULT NULL,
+  email TEXT DEFAULT NULL,
+  total_a_payer REAL NOT NULL,
+  acompte REAL DEFAULT 0,
+  date_facture TEXT DEFAULT (datetime('now','localtime'))
+);
 `);
 
-console.log('Tables factures et facture_produits initialisées.');
-
-
-
+db.exec(`
+CREATE TABLE IF NOT EXISTS facture_produits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  facture_id INTEGER NOT NULL,
+  produit_name TEXT NOT NULL,
+  prix_unitaire REAL NOT NULL,
+  quantite INTEGER NOT NULL,
+  FOREIGN KEY (facture_id) REFERENCES factures(id) ON DELETE CASCADE
+);
+`);
+// === 🔄 Migration : Ajout de la colonne 'unite' si manquante ===
 try {
-  db.exec('ALTER TABLE factures ADD COLUMN adresse TEXT DEFAULT NULL');
-} catch (e) {
-  // Column already exists
-}
+  // Vérifier si la colonne 'unite' existe (via PRAGMA table_info)
+  const columns = db.prepare(`
+    SELECT name FROM pragma_table_info('matieres_premieres')
+    WHERE name = 'unite'
+  `).all();
 
-try {
-  db.exec('ALTER TABLE factures ADD COLUMN telephone TEXT DEFAULT NULL');
-} catch (e) {
-  // Column already exists
-}
-
-try {
-  db.exec('ALTER TABLE factures ADD COLUMN email TEXT DEFAULT NULL');
-} catch (e) {
-  // Column already exists
+  if (columns.length === 0) {
+    // Ajouter la colonne avec défaut 'kg'
+    db.exec(`
+      ALTER TABLE matieres_premieres 
+      ADD COLUMN unite TEXT DEFAULT 'kg'
+    `);
+    // Mettre à jour les enregistrements existants (défaut appliqué auto)
+    console.log('✅ Migration : Colonne "unite" ajoutée à matieres_premieres.');
+  } else {
+    console.log('ℹ️ Colonne "unite" déjà présente.');
+  }
+} catch (err) {
+  console.error('❌ Erreur migration unite:', err.message);
 }
 
 // === 👤 Création automatique de l’utilisateur admin "MOKA" ===
@@ -151,19 +156,9 @@ const admin = db.prepare('SELECT * FROM users WHERE username = ?').get(adminUser
 
 if (!admin) {
   db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(adminUsername, hashedPassword);
-  console.log(`✅ Utilisateur admin "${adminUsername}" créé avec succès (mot de passe : ${adminPassword})`);
+  console.log(`✅ Utilisateur admin "${adminUsername}" créé (mot de passe : ${adminPassword})`);
 } else {
   console.log(`ℹ️ Utilisateur admin "${adminUsername}" déjà existant`);
 }
 
-// 🔧 Migration : Ajouter colonne 'acompte' si elle n'existe pas
-try {
-  db.exec('ALTER TABLE commandes ADD COLUMN acompte REAL DEFAULT 0');
-  console.log('✅ Colonne "acompte" ajoutée à la table commandes.');
-} catch (e) {
-  // Colonne déjà existante ou erreur ignorable
-  if (!e.message.includes('duplicate column name')) {
-    console.error('⚠️ Erreur lors de la migration "acompte" :', e.message);
-  }
-}
 module.exports = db;

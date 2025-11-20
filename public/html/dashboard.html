@@ -81,8 +81,13 @@
         <input type="text" id="nom" placeholder="Nom de la matière" required class="border p-2 rounded-lg w-full" />
         <span id="errorNom" class="text-red-600 text-sm mt-1 hidden"></span>
       </div>
-      <input type="number" id="quantite_actuelle" placeholder="Quantité actuelle" min="0" step="0.01" required class="border p-2 rounded-lg" />
-      <input type="number" id="quantite_minimale" placeholder="Quantité minimale" min="0" step="0.01" required class="border p-2 rounded-lg" />
+      <input type="number" id="quantite_actuelle" placeholder="Quantité actuelle (en unités)" min="0" step="0.01" required class="border p-2 rounded-lg" />
+      <input type="number" id="quantite_minimale" placeholder="Quantité minimale (en unités)" min="0" step="0.01" required class="border p-2 rounded-lg" />
+      <select id="unite" required class="border p-2 rounded-lg">
+        <option value="kg">kg</option>
+        <option value="sack20">Sack 20 kg</option>
+        <option value="sack50">Sac 50 kg</option>
+      </select>
       <input type="text" id="fournisseur_nom" placeholder="Nom du fournisseur" class="border p-2 rounded-lg" />
       <input type="text" id="fournisseur_prenom" placeholder="Prénom du fournisseur" class="border p-2 rounded-lg" />
       <input type="email" id="fournisseur_email" placeholder="Email du fournisseur" class="border p-2 rounded-lg" />
@@ -138,7 +143,13 @@
 <div id="stockModal" class="modal">
   <div class="bg-white p-6 rounded-xl shadow-lg w-80">
     <h3 class="text-lg font-semibold mb-4" id="modalTitle">Modifier Quantité</h3>
-    <input type="number" id="stockValue" placeholder="Entrez la quantité" min="0" step="0.01" class="w-full border p-2 rounded-lg mb-4" />
+    <input type="number" id="stockValue" placeholder="Entrez la quantité (en unités)" min="0" step="0.01" class="w-full border p-2 rounded-lg mb-2" />
+    <select id="stockUnite" class="w-full border p-2 rounded-lg mb-4">
+      <option value="">Utiliser l'unité par défaut</option>
+      <option value="kg">kg</option>
+      <option value="sack20">Sack 20 kg</option>
+      <option value="sack50">Sac 50 kg</option>
+    </select>
     <div class="flex justify-end gap-2">
       <button id="cancelStock" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg">Annuler</button>
       <button id="saveStock" class="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg">Valider</button>
@@ -159,6 +170,7 @@ const tableBody = document.getElementById('matiereTableBody');
 const toast = document.getElementById('toast');
 const modal = document.getElementById('stockModal');
 const stockInput = document.getElementById('stockValue');
+const stockUniteSelect = document.getElementById('stockUnite');
 const modalTitle = document.getElementById('modalTitle');
 const cancelStock = document.getElementById('cancelStock');
 const saveStock = document.getElementById('saveStock');
@@ -211,8 +223,8 @@ async function updateNotifications() {
   const matieres = await fetchAllMatieres();
   const commandes = await fetchUpcoming();
   
-  const stockNotifs = matieres.filter(m => parseFloat(m.quantite_actuelle) < parseFloat(m.quantite_minimale))
-    .map(m => ({ text: `Stock bas pour ${m.nom} (${m.quantite_actuelle})`, type: 'stock-low' }));
+  const stockNotifs = matieres.filter(m => parseFloat(m.quantite_actuelle_unites) < parseFloat(m.quantite_minimale_unites))
+    .map(m => ({ text: `Stock bas pour ${m.nom} (${m.quantite_actuelle_unites} ${m.unite})`, type: 'stock-low' }));
   
   const commandeNotifs = commandes.map(c => {
     const dateLivraison = new Date(c.date_livraison).toLocaleDateString('fr-FR');
@@ -295,13 +307,13 @@ function renderTable(matieres){
   }
   tableBody.innerHTML=matieres.map(m=>`
     <tr data-id="${m.id}" 
-        data-nom="${m.nom}" data-quant="${m.quantite_actuelle}" data-quantmin="${m.quantite_minimale}" 
+        data-nom="${m.nom}" data-quant="${m.quantite_actuelle_unites}" data-quantmin="${m.quantite_minimale_unites}" data-unite="${m.unite}"
         data-fnom="${m.fournisseur_nom||''}" data-fprenom="${m.fournisseur_prenom||''}" 
         data-femail="${m.fournisseur_email||''}" data-fphone="${m.fournisseur_telephone||''}" 
         class="hover:bg-gray-50 border-b">
       <td class="p-3">${m.nom}</td>
-      <td class="p-3">${m.quantite_actuelle}</td>
-      <td class="p-3">${m.quantite_minimale}</td>
+      <td class="p-3">${m.quantite_actuelle_unites} ${m.unite}</td>
+      <td class="p-3">${m.quantite_minimale_unites} ${m.unite}</td>
       <td class="p-3">${[m.fournisseur_nom, m.fournisseur_prenom].filter(Boolean).join(' ')||'-'}</td>
       <td class="p-3">${m.fournisseur_email||'-'}</td>
       <td class="p-3">${m.fournisseur_telephone||'-'}</td>
@@ -322,6 +334,7 @@ function editMatiereRow(id){
   document.getElementById('nom').value = row.dataset.nom;
   document.getElementById('quantite_actuelle').value = row.dataset.quant;
   document.getElementById('quantite_minimale').value = row.dataset.quantmin;
+  document.getElementById('unite').value = row.dataset.unite;
   document.getElementById('fournisseur_nom').value = row.dataset.fnom;
   document.getElementById('fournisseur_prenom').value = row.dataset.fprenom;
   document.getElementById('fournisseur_email').value = row.dataset.femail;
@@ -338,6 +351,7 @@ cancelEdit.onclick=()=>resetFormToAdd();
 function resetFormToAdd(){
   form.reset();
   document.getElementById('editId').value='';
+  document.getElementById('unite').value = 'kg';
   formTitle.textContent='Ajouter une matière première';
   submitText.textContent='Enregistrer';
   cancelEdit.classList.add('hidden');
@@ -352,6 +366,7 @@ form.onsubmit=async e=>{
     nom: document.getElementById('nom').value.trim(),
     quantite_actuelle: parseFloat(document.getElementById('quantite_actuelle').value),
     quantite_minimale: parseFloat(document.getElementById('quantite_minimale').value),
+    unite: document.getElementById('unite').value,
     fournisseur_nom: document.getElementById('fournisseur_nom').value.trim(),
     fournisseur_prenom: document.getElementById('fournisseur_prenom').value.trim(),
     fournisseur_email: document.getElementById('fournisseur_email').value.trim(),
@@ -397,14 +412,17 @@ function openStockModal(id,action){
   modal.style.display='flex';
   modalTitle.textContent=action==='add'?'Ajouter du stock':'Consommer du stock';
   stockInput.value='';
+  stockUniteSelect.value = '';
 }
 cancelStock.onclick=()=>modal.style.display='none';
 saveStock.onclick=async()=>{
   const value=parseFloat(stockInput.value);
   if(!value||value<=0){ showToast('Quantité invalide','error'); return; }
+  const unite = stockUniteSelect.value || null;
   try{
     const url = currentStockAction==='add'?`${API_URL}/add-stock/${currentStockId}`:`${API_URL}/consommer/${currentStockId}`;
-    const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})});
+    const body = { value, unite };
+    const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const result = await res.json();
     if(!res.ok) throw new Error(result.error||'Erreur');
     showToast(result.message,'success');

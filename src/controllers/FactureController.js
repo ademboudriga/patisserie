@@ -5,7 +5,10 @@ const getAllFactures = async (req, res) => {
     const { client, date, startDate, endDate, page = 1, limit = 10 } = req.query;
     const filters = { client, date, startDate, endDate, page: parseInt(page), limit: parseInt(limit) };
 
-    const { factures, total, page: currentPage, limit: currentLimit } = FactureModel.getAllFactures(filters);
+    let { factures, total, page: currentPage, limit: currentLimit } = FactureModel.getAllFactures(filters);
+
+    // Trier les factures par ordre décroissant de id
+    factures = factures.sort((a, b) => b.id - a.id);
 
     res.status(200).json({
       success: true,

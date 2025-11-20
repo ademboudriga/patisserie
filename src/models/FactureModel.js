@@ -57,14 +57,13 @@ const getAllFactures = (filters = {}) => {
   const limit = parseInt(filters.limit) || 10;
   const offset = (page - 1) * limit;
 
-  sql += ' ORDER BY date_facture DESC LIMIT ? OFFSET ?';
+  sql += ' ORDER BY id DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
 
   const factures = db.prepare(sql).all(params);
 
   return { factures, total, page, limit };
 };
-
 /**
  * Récupérer les factures pour impression par client et période
  * @param {Object} filters - { client, startDate, endDate }

@@ -170,7 +170,7 @@
       <table class="w-full border-collapse text-left">
         <thead class="bg-gray-100">
           <tr>
-            <th class="p-3 border-b">ID</th>
+            <th class="p-3 border-b">Numéro Facture</th>
             <th class="p-3 border-b">Nom du client</th>
             <th class="p-3 border-b">Date</th>
             <th class="p-3 border-b">Acompte (DT)</th>
@@ -355,6 +355,8 @@
     if (date) params.append('date', date);
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
+    params.append('orderBy', 'total_a_payer');
+    params.append('order', 'desc');
     params.append('page', 1); // Reset to page 1 on search
     currentSearchParams = { client, date, startDate, endDate };
     currentPage = 1;
@@ -372,7 +374,7 @@
     document.getElementById('searchEndDate').value = '';
     currentSearchParams = {};
     currentPage = 1;
-    loadFactures(`page=1&limit=${limit}`);
+    loadFactures(`page=1&limit=${limit}&orderBy=total_a_payer&order=desc`);
     showToast('Recherche réinitialisée');
   };
   /**
@@ -384,6 +386,8 @@
     Object.entries(currentSearchParams).forEach(([key, value]) => {
       if (value) params.append(key, value);
     });
+    params.append('orderBy', 'total_a_payer');
+    params.append('order', 'desc');
     params.append('page', page);
     params.append('limit', limit);
     currentPage = page;
@@ -438,7 +442,7 @@
             </h4>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div class="space-y-2">
-                <div><span class="font-medium text-gray-600">ID:</span> <span class="text-gray-900">${facture.id}</span></div>
+                <div><span class="font-medium text-gray-600">Numéro Facture:</span> <span class="text-gray-900">${facture.id}</span></div>
                 <div><span class="font-medium text-gray-600">Client:</span> <span class="text-gray-900">${facture.nom_complet}</span></div>
                 <div><span class="font-medium text-gray-600">Adresse:</span> <span class="text-gray-900">${facture.adresse || 'Non spécifiée'}</span></div>
                 <div><span class="font-medium text-gray-600">Téléphone:</span> <span class="text-gray-900">${facture.telephone || 'Non spécifié'}</span></div>
@@ -501,7 +505,8 @@
    */
   const loadFactures = async (searchParams = '') => {
     try {
-      const url = searchParams ? `/factures?${searchParams}` : '/factures';
+      const fullParams = searchParams ? `${searchParams}&orderBy=total_a_payer&order=desc` : `orderBy=total_a_payer&order=desc`;
+      const url = `/factures?${fullParams}`;
       const { data: factures, pagination } = await apiRequest(url);
       const tbody = document.getElementById('factureTableBody');
       tbody.innerHTML = '';
@@ -573,6 +578,8 @@
       Object.entries(currentSearchParams).forEach(([key, value]) => {
         if (value) params.append(key, value);
       });
+      params.append('orderBy', 'total_a_payer');
+      params.append('order', 'desc');
       params.append('page', currentPage);
       params.append('limit', limit);
       await loadFactures(params.toString());
@@ -646,9 +653,9 @@
       // Tableau : ID, Date, Produits
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.text('ID', 20, y);
-      doc.text('Date', 40, y);
-      doc.text('Produits', 70, y);
+      doc.text('Numéro Facture', 20, y);
+      doc.text('Date', 60, y);
+      doc.text('Produits', 80, y);
       doc.line(19, y + 1, 191, y + 1);
       doc.setFont("helvetica", "normal");
       y += 8;
@@ -659,9 +666,9 @@
           // Redessiner en-têtes sur nouvelle page
           doc.setFont("helvetica", "bold");
           doc.setFontSize(10);
-          doc.text('ID', 20, y);
-          doc.text('Date', 40, y);
-          doc.text('Produits', 70, y);
+          doc.text('Numéro Facture', 20, y);
+          doc.text('Date', 60, y);
+          doc.text('Produits', 80, y);
           doc.line(19, y + 1, 191, y + 1);
           doc.setFont("helvetica", "normal");
           y += 8;
@@ -669,11 +676,11 @@
         const dateStr = new Date(f.date_facture).toLocaleDateString('fr-FR');
         const productsStr = f.produits.map(p => `${p.produit_name} (${p.quantite}x${p.prix_unitaire.toFixed(2)}DT)`).join(', ');
         doc.setFontSize(8); // Taille de police réduite pour les produits
-        const splitText = doc.splitTextToSize(productsStr, 120);
+        const splitText = doc.splitTextToSize(productsStr, 110);
         doc.text(f.id.toString(), 20, y);
-        doc.text(dateStr, 40, y);
+        doc.text(dateStr, 60, y);
         splitText.forEach((line, i) => {
-          doc.text(line, 70, y + (i * 3)); // Espacement de ligne réduit à 3
+          doc.text(line, 80, y + (i * 3)); // Espacement de ligne réduit à 3
         });
         const linesHeight = splitText.length * 3;
         doc.line(19, y + linesHeight + 1, 191, y + linesHeight + 1); // Ligne ajustée
@@ -793,6 +800,8 @@
       if (client) params.append('client', client);
       params.append('startDate', startDate);
       params.append('endDate', endDate);
+      params.append('orderBy', 'total_a_payer');
+      params.append('order', 'desc');
       params.append('limit', 1000); // Récupérer toutes les factures pour l'impression
       const { data: factures } = await apiRequest(`/factures?${params.toString()}`);
       if (factures.length === 0) {
@@ -832,7 +841,7 @@
   // === ÉVÉNEMENTS ===
   document.addEventListener('DOMContentLoaded', () => {
     // Charger les factures au démarrage
-    loadFactures(`page=1&limit=${limit}`);
+    loadFactures(`page=1&limit=${limit}&orderBy=total_a_payer&order=desc`);
     // Ajouter produit
     document.getElementById('addProduit').addEventListener('click', addProduit);
     // Soumission formulaire
@@ -898,6 +907,8 @@
         Object.entries(currentSearchParams).forEach(([key, value]) => {
           if (value) params.append(key, value);
         });
+        params.append('orderBy', 'total_a_payer');
+        params.append('order', 'desc');
         params.append('page', currentPage);
         params.append('limit', limit);
         await loadFactures(params.toString());
